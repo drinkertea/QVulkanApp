@@ -25,11 +25,7 @@ struct Image
 struct Texture
 {
 public:
-    Texture(
-        const IVulkanFactory& factory,
-        const ITextureSource& source,
-        VkFormat format
-    );
+    Texture(const IVulkanFactory& factory, const ITextureSource& source, VkFormat format);
 
     VkDescriptorImageInfo GetInfo() const;
 
