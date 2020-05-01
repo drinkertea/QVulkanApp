@@ -8,6 +8,7 @@
 
 #include "RenderInterface.h"
 #include "VulkanFactory.h"
+#include "VulkanUtils.h"
 #include "Camera.h"
 #include "VulkanImage.h"
 
@@ -18,21 +19,6 @@ struct IvalidPath : public std::runtime_error
     {
     }
 };
-
-struct InvalidVulkanCall : public std::logic_error
-{
-    InvalidVulkanCall()
-        : std::logic_error("Invalid Vulkan Api usage")
-    {
-    }
-};
-
-void VkResultSuccess(VkResult res)
-{
-    if (res == VK_SUCCESS)
-        return;
-    throw InvalidVulkanCall();
-}
 
 struct IFrameCallback
 {
@@ -57,7 +43,7 @@ public:
 
     ~TextureSource() override = default;
 
-    void FillMappedData(const IMappedData& data) const override
+    void FillMappedData(const Vulkan::IMappedData& data) const override
     {
         auto mapped_data = data.GetData();
         for (int y = 0; y < image.height(); ++y)
@@ -106,7 +92,7 @@ class IndexedBuffer
     } vertex_layout;
 
 public:
-    IndexedBuffer(IVulkanFactory& vulkan_factory)
+    IndexedBuffer(Vulkan::IVulkanFactory& vulkan_factory)
     {
         std::vector<Vertex> vertices =
         {
@@ -181,8 +167,8 @@ public:
 
 private:
     uint32_t m_index_count = 0;
-    Buffer   m_index_buffer{};
-    Buffer   m_vectex_buffer{};
+    Vulkan::Buffer m_index_buffer{};
+    Vulkan::Buffer m_vectex_buffer{};
 };
 
 class UniformBuffer
@@ -194,7 +180,7 @@ class UniformBuffer
     } m_ubo;
 
 public:
-    UniformBuffer(IVulkanFactory& vulkan_factory, const QVulkanWindow& window)
+    UniformBuffer(Vulkan::IVulkanFactory& vulkan_factory, const QVulkanWindow& window)
     {
         m_buffer = vulkan_factory.CreateBuffer(
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -204,7 +190,7 @@ public:
         );
         auto device = window.device();
         auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
-        VkResultSuccess(device_functions.vkMapMemory(device, m_buffer.memory, 0, m_buffer.size, 0, reinterpret_cast<void**>(&mapped)));
+        Vulkan::VkResultSuccess(device_functions.vkMapMemory(device, m_buffer.memory, 0, m_buffer.size, 0, reinterpret_cast<void**>(&mapped)));
     }
 
     void Update(const Camera& camera)
@@ -240,7 +226,7 @@ public:
 private:
     uint8_t* mapped = nullptr;
 
-    Buffer m_buffer{};
+    Vulkan::Buffer m_buffer{};
 };
 
 class DescriptorSet
@@ -273,7 +259,7 @@ public:
         pool_info.pPoolSizes    = pool_sizes.data();
         pool_info.maxSets       = 2;
 
-        VkResultSuccess(device_functions.vkCreateDescriptorPool(device, &pool_info, nullptr, &m_descriptor_pool));
+        Vulkan::VkResultSuccess(device_functions.vkCreateDescriptorPool(device, &pool_info, nullptr, &m_descriptor_pool));
 
         std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings;
 
@@ -295,14 +281,14 @@ public:
         descriptor_set_layout_info.pBindings = setLayoutBindings.data();
         descriptor_set_layout_info.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
 
-        VkResultSuccess(device_functions.vkCreateDescriptorSetLayout(device, &descriptor_set_layout_info, nullptr, &m_descriptor_set_layout));
+        Vulkan::VkResultSuccess(device_functions.vkCreateDescriptorSetLayout(device, &descriptor_set_layout_info, nullptr, &m_descriptor_set_layout));
 
         VkPipelineLayoutCreateInfo pipeline_layout_info{};
         pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipeline_layout_info.setLayoutCount = 1;
         pipeline_layout_info.pSetLayouts = &m_descriptor_set_layout;
 
-        VkResultSuccess(device_functions.vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &m_pipeline_layout));
+        Vulkan::VkResultSuccess(device_functions.vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &m_pipeline_layout));
 
         VkDescriptorSetAllocateInfo descriptor_set_info{};
         descriptor_set_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -310,7 +296,7 @@ public:
         descriptor_set_info.pSetLayouts        = &m_descriptor_set_layout;
         descriptor_set_info.descriptorSetCount = 1;
 
-        VkResultSuccess(device_functions.vkAllocateDescriptorSets(device, &descriptor_set_info, &m_descriptor_set));
+        Vulkan::VkResultSuccess(device_functions.vkAllocateDescriptorSets(device, &descriptor_set_info, &m_descriptor_set));
 
         auto texture_descriptor = texture.GetInfo();
         auto buffer_descriptor  = uniform_buffer.GetInfo();
@@ -371,7 +357,7 @@ class Pipeline
         shader_info.pCode = reinterpret_cast<const uint32_t*>(blob.constData());
 
         VkShaderModule res = nullptr;
-        VkResultSuccess(device_functions.vkCreateShaderModule(device, &shader_info, nullptr, &res));
+        Vulkan::VkResultSuccess(device_functions.vkCreateShaderModule(device, &shader_info, nullptr, &res));
         return res;
     }
 
@@ -482,8 +468,8 @@ public:
         VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
         pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 
-        VkResultSuccess(device_functions.vkCreatePipelineCache(device, &pipelineCacheCreateInfo, nullptr, &m_pipeline_cache));
-        VkResultSuccess(device_functions.vkCreateGraphicsPipelines(device, m_pipeline_cache, 1, &pipeline_info, nullptr, &m_pipeline));
+        Vulkan::VkResultSuccess(device_functions.vkCreatePipelineCache(device, &pipelineCacheCreateInfo, nullptr, &m_pipeline_cache));
+        Vulkan::VkResultSuccess(device_functions.vkCreateGraphicsPipelines(device, m_pipeline_cache, 1, &pipeline_info, nullptr, &m_pipeline));
     }
 
     void OnFrame(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) override
@@ -530,7 +516,7 @@ public:
 
     void initResources() override
     {
-        m_vulkan_factory = IVulkanFactory::Create(m_window);
+        m_vulkan_factory = Vulkan::IVulkanFactory::Create(m_window);
         m_texture = std::make_unique<Vulkan::Texture>(*m_vulkan_factory, TextureSource(":/dirt.png"), VK_FORMAT_R8G8B8A8_UNORM);
         m_geometry = std::make_unique<IndexedBuffer>(*m_vulkan_factory);
         m_uniform = std::make_unique<UniformBuffer>(*m_vulkan_factory, m_window);
@@ -712,7 +698,7 @@ public:
     }
 
 private:
-    std::unique_ptr<IVulkanFactory> m_vulkan_factory;
+    std::unique_ptr<Vulkan::IVulkanFactory> m_vulkan_factory;
     QVulkanWindow& m_window;
 };
 

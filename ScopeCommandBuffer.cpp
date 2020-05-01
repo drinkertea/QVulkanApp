@@ -3,6 +3,7 @@
 
 #include "ScopeCommandBuffer.h"
 #include "VulkanFactory.h"
+#include "VulkanUtils.h"
 
 namespace Vulkan
 {

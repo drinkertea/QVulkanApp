@@ -2,15 +2,15 @@
 
 #include <vulkan/vulkan.h>
 
-struct IVulkanFactory;
-struct IMappedData;
-
 namespace Vulkan
 {
 
+struct IVulkanFactory;
+struct IMappedData;
+
 struct ITextureSource
 {
-    virtual void FillMappedData(const IMappedData&) const = 0;
+    virtual void FillMappedData(const IMappedData& data) const = 0;
     virtual uint32_t GetWidth() const = 0;
     virtual uint32_t GetHeight() const = 0;
     virtual ~ITextureSource() = default;

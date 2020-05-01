@@ -8,7 +8,8 @@
 
 class QVulkanWindow;
 
-void VkResultSuccess(VkResult res);
+namespace Vulkan
+{
 
 struct Buffer
 {
@@ -63,3 +64,5 @@ struct IVulkanFactory
 
     virtual ~IVulkanFactory() = default;
 };
+
+}
