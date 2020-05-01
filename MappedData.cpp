@@ -3,6 +3,7 @@
 
 #include "MappedData.h"
 #include "VulkanImage.h"
+#include "VulkanUtils.h"
 
 namespace Vulkan
 {

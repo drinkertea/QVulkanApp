@@ -5,10 +5,11 @@
 #include "VulkanFactory.h"
 
 class QVulkanWindow;
-struct Image;
 
 namespace Vulkan
 {
+
+struct Image;
 
 class MappedData
     : public IMappedData

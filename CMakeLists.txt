@@ -36,6 +36,8 @@ add_executable(QVulkanApp
     VulkanFactory.cpp
     VulkanImage.h
     VulkanImage.cpp
+    VulkanUtils.h
+    VulkanUtils.cpp
     ScopeCommandBuffer.h
     ScopeCommandBuffer.cpp
     MappedData.h

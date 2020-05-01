@@ -2,64 +2,12 @@
 #include <QVulkanFunctions>
 
 #include "VulkanFactory.h"
+#include "VulkanUtils.h"
 #include "MappedData.h"
 #include "ScopeCommandBuffer.h"
 
-VkImageCreateInfo GetImageCreateInfo(VkFormat format, uint32_t width, uint32_t height)
-{
-    VkImageCreateInfo image_create_info = {};
-    image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    image_create_info.imageType = VK_IMAGE_TYPE_2D;
-    image_create_info.format = format;
-    image_create_info.mipLevels = 1;
-    image_create_info.arrayLayers = 1;
-    image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
-    image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    image_create_info.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-    image_create_info.extent.width = width;
-    image_create_info.extent.height = height;
-    image_create_info.extent.depth = 1;
-    return image_create_info;
-}
-
-VkSamplerCreateInfo GetSamplerCreateInfo()
-{
-    VkSamplerCreateInfo sampler{};
-    sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sampler.magFilter = VK_FILTER_NEAREST;
-    sampler.minFilter = VK_FILTER_NEAREST;
-    sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler.mipLodBias = 0.0f;
-    sampler.compareOp = VK_COMPARE_OP_NEVER;
-    sampler.minLod = 0.0f;
-    sampler.maxLod = 0.0f;
-    sampler.maxAnisotropy = 1.0;
-    sampler.anisotropyEnable = VK_FALSE;
-    sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    return sampler;
-}
-
-VkImageViewCreateInfo GetImageViewCreateInfo(VkImage image, VkFormat format)
-{
-    VkImageViewCreateInfo view{};
-    view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    view.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    view.format = format;
-    view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    view.subresourceRange.baseMipLevel = 0;
-    view.subresourceRange.baseArrayLayer = 0;
-    view.subresourceRange.layerCount = 1;
-    view.subresourceRange.levelCount = 1;
-    view.image = image;
-    view.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-    return view;
-}
-
 class VulkanFactory
-    : public IVulkanFactory
+    : public Vulkan::IVulkanFactory
 {
     const QVulkanWindow&    m_window;
     VkDevice                m_device = nullptr;
@@ -89,7 +37,7 @@ class VulkanFactory
         };
 
         VkDeviceMemory res = nullptr;
-        VkResultSuccess(m_device_functions.vkAllocateMemory(m_device, &allocate_info, nullptr, &res));
+        Vulkan::VkResultSuccess(m_device_functions.vkAllocateMemory(m_device, &allocate_info, nullptr, &res));
         return res;
     }
 
@@ -105,9 +53,9 @@ public:
 
     ~VulkanFactory() override = default;
 
-    Buffer CreateBuffer(VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_property, VkDeviceSize size, void* data) const override
+    Vulkan::Buffer CreateBuffer(VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_property, VkDeviceSize size, void* data) const override
     {
-        Buffer buffer = {};
+        Vulkan::Buffer buffer = {};
         buffer.size = size;
 
         VkBufferCreateInfo buffer_createInfo{};
@@ -115,7 +63,7 @@ public:
         buffer_createInfo.usage = usage;
         buffer_createInfo.size  = size;
 
-        VkResultSuccess(m_device_functions.vkCreateBuffer(m_device, &buffer_createInfo, nullptr, &buffer.buffer));
+        Vulkan::VkResultSuccess(m_device_functions.vkCreateBuffer(m_device, &buffer_createInfo, nullptr, &buffer.buffer));
         
         VkMemoryRequirements memory_requiments{};
         m_device_functions.vkGetBufferMemoryRequirements(m_device, buffer.buffer, &memory_requiments);
@@ -129,7 +77,7 @@ public:
         if (data)
         {
             void* mapped = nullptr;
-            VkResultSuccess(m_device_functions.vkMapMemory(m_device, buffer.memory, 0, size, 0, &mapped));
+            Vulkan::VkResultSuccess(m_device_functions.vkMapMemory(m_device, buffer.memory, 0, size, 0, &mapped));
             memcpy(mapped, data, size);
             if ((memory_property & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
             {
@@ -138,12 +86,12 @@ public:
                 mapped_range.memory = buffer.memory;
                 mapped_range.offset = 0;
                 mapped_range.size = size;
-                VkResultSuccess(m_device_functions.vkFlushMappedMemoryRanges(m_device, 1, &mapped_range));
+                Vulkan::VkResultSuccess(m_device_functions.vkFlushMappedMemoryRanges(m_device, 1, &mapped_range));
             }
             m_device_functions.vkUnmapMemory(m_device, buffer.memory);
         }
 
-        VkResultSuccess(m_device_functions.vkBindBufferMemory(m_device, buffer.buffer, buffer.memory, 0));
+        Vulkan::VkResultSuccess(m_device_functions.vkBindBufferMemory(m_device, buffer.buffer, buffer.memory, 0));
 
         return buffer;
     }
@@ -152,16 +100,16 @@ public:
     {
         Vulkan::Image image{};
 
-        auto upload_info = GetImageCreateInfo(format, width, height);
+        auto upload_info = Vulkan::GetImageCreateInfo(format, width, height);
         upload_info.tiling = VK_IMAGE_TILING_LINEAR;
         upload_info.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        VkResultSuccess(m_device_functions.vkCreateImage(m_device, &upload_info, nullptr, &image.image));
+        Vulkan::VkResultSuccess(m_device_functions.vkCreateImage(m_device, &upload_info, nullptr, &image.image));
 
         VkMemoryRequirements memory_requiments = {};
         m_device_functions.vkGetImageMemoryRequirements(m_device, image.image, &memory_requiments);
         image.memory = Allocate(m_window.hostVisibleMemoryIndex(), memory_requiments.size);
 
-        VkResultSuccess(m_device_functions.vkBindImageMemory(m_device, image.image, image.memory, 0));
+        Vulkan::VkResultSuccess(m_device_functions.vkBindImageMemory(m_device, image.image, image.memory, 0));
 
         return image;
     }
@@ -170,16 +118,16 @@ public:
     {
         Vulkan::Image image{};
 
-        auto upload_info = GetImageCreateInfo(format, width, height);
+        auto upload_info = Vulkan::GetImageCreateInfo(format, width, height);
         upload_info.tiling = VK_IMAGE_TILING_OPTIMAL;
         upload_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        VkResultSuccess(m_device_functions.vkCreateImage(m_device, &upload_info, nullptr, &image.image));
+        Vulkan::VkResultSuccess(m_device_functions.vkCreateImage(m_device, &upload_info, nullptr, &image.image));
 
         VkMemoryRequirements memory_requiments = {};
         m_device_functions.vkGetImageMemoryRequirements(m_device, image.image, &memory_requiments);
         image.memory = Allocate(m_window.deviceLocalMemoryIndex(), memory_requiments.size);
 
-        VkResultSuccess(m_device_functions.vkBindImageMemory(m_device, image.image, image.memory, 0));
+        Vulkan::VkResultSuccess(m_device_functions.vkBindImageMemory(m_device, image.image, image.memory, 0));
 
         return image;
     }
@@ -235,8 +183,8 @@ public:
     VkSampler CreateSampler() const override
     {
         VkSampler res = nullptr;
-        VkResultSuccess(m_window.vulkanInstance()->deviceFunctions(m_window.device())->vkCreateSampler(
-            m_window.device(), &GetSamplerCreateInfo(), nullptr, &res
+        Vulkan::VkResultSuccess(m_window.vulkanInstance()->deviceFunctions(m_window.device())->vkCreateSampler(
+            m_window.device(), &Vulkan::GetSamplerCreateInfo(), nullptr, &res
         ));
         return res;
     }
@@ -244,19 +192,19 @@ public:
     VkImageView CreateImageView(VkImage image, VkFormat format) const override
     {
         VkImageView res = nullptr;
-        VkResultSuccess(m_window.vulkanInstance()->deviceFunctions(m_window.device())->vkCreateImageView(
-            m_window.device(), &GetImageViewCreateInfo(image, format), nullptr, &res
+        Vulkan::VkResultSuccess(m_window.vulkanInstance()->deviceFunctions(m_window.device())->vkCreateImageView(
+            m_window.device(), &Vulkan::GetImageViewCreateInfo(image, format), nullptr, &res
         ));
         return res;
     }
 
-    IMappedData::Ptr MapImage(const Vulkan::Image& img) const override
+    Vulkan::IMappedData::Ptr MapImage(const Vulkan::Image& img) const override
     {
         return std::make_unique<Vulkan::MappedData>(img, m_window);
     }
 };
 
-std::unique_ptr<IVulkanFactory> IVulkanFactory::Create(const QVulkanWindow& window)
+std::unique_ptr<Vulkan::IVulkanFactory> Vulkan::IVulkanFactory::Create(const QVulkanWindow& window)
 {
     return std::make_unique<VulkanFactory>(window);
 }
