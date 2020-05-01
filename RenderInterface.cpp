@@ -1,7 +1,3 @@
-#include "RenderInterface.h"
-#include "VulkanFactory.h"
-#include "Camera.h"
-
 #include <QVulkanFunctions>
 #include <QFile>
 #include <QVector2D>
@@ -9,6 +5,11 @@
 #include <array>
 #include <iostream>
 #include <sstream>
+
+#include "RenderInterface.h"
+#include "VulkanFactory.h"
+#include "Camera.h"
+#include "VulkanImage.h"
 
 struct IvalidPath : public std::runtime_error
 {
@@ -39,298 +40,43 @@ struct IFrameCallback
     virtual ~IFrameCallback() = default;
 };
 
-class Texture
+class TextureSource
+    : public Vulkan::ITextureSource
 {
-    const QVulkanWindow& m_window;
-
-    static VkDeviceMemory Allocate(VkImage image, uint32_t index, const QVulkanWindow& window)
-    {
-        VkMemoryRequirements requerements = {};
-        auto& device_functions = *window.vulkanInstance()->deviceFunctions(window.device());
-        device_functions.vkGetImageMemoryRequirements(window.device(), image, &requerements);
-
-        if (!(requerements.memoryTypeBits & (1 << index)))
-        {
-            VkPhysicalDeviceMemoryProperties properties = {};
-            window.vulkanInstance()->functions()->vkGetPhysicalDeviceMemoryProperties(window.physicalDevice(), &properties);
-            for (uint32_t i = 0; i < properties.memoryTypeCount; ++i)
-            {
-                if (!(requerements.memoryTypeBits & (1 << i)))
-                    continue;
-                index = i;
-            }
-        }
-
-        VkMemoryAllocateInfo allocate_info = {
-            VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            nullptr,
-            requerements.size,
-            index
-        };
-
-        VkDeviceMemory res = nullptr;
-        VkResultSuccess(device_functions.vkAllocateMemory(window.device(), &allocate_info, nullptr, &res));
-        return res;
-    }
-
-    static void FillImageData(const QImage& img, VkImage image, VkDeviceMemory memory, const QVulkanWindow& window)
-    {
-        auto& device_functions = *window.vulkanInstance()->deviceFunctions(window.device());
-
-        VkImageSubresource subres = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
-        VkSubresourceLayout layout;
-        device_functions.vkGetImageSubresourceLayout(window.device(), image, &subres, &layout);
-
-        uint8_t* mapped_data = nullptr;
-        VkResultSuccess(device_functions.vkMapMemory(
-            window.device(), memory, layout.offset, layout.size, 0, reinterpret_cast<void**>(&mapped_data))
-        );
-
-        for (int y = 0; y < img.height(); ++y)
-        {
-            memcpy(mapped_data, img.constScanLine(y), img.width() * 4);
-            mapped_data += layout.rowPitch;
-        }
-
-        device_functions.vkUnmapMemory(window.device(), memory);
-    }
-
-    static VkImageCreateInfo GetImageCreateInfo(const QImage& img, VkImageTiling tiling, VkImageUsageFlags usage)
-    {
-        VkImageCreateInfo image_create_info = {};
-        image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        image_create_info.imageType = VK_IMAGE_TYPE_2D;
-        image_create_info.format = format;
-        image_create_info.mipLevels = 1;
-        image_create_info.arrayLayers = 1;
-        image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
-        image_create_info.tiling = tiling;
-        image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        image_create_info.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-        image_create_info.usage = usage;
-        image_create_info.extent.width = img.width();
-        image_create_info.extent.height = img.height();
-        image_create_info.extent.depth = 1;
-        return image_create_info;
-    }
-
-    static void FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool pool, const QVulkanWindow& window)
-    {
-        if (!commandBuffer)
-            return;
-
-        auto& device_functions = *window.vulkanInstance()->deviceFunctions(window.device());
-
-        VkResultSuccess(device_functions.vkEndCommandBuffer(commandBuffer));
-
-        VkSubmitInfo submit_info = {};
-        submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submit_info.commandBufferCount = 1;
-        submit_info.pCommandBuffers = &commandBuffer;
-
-        VkFenceCreateInfo fence_info = {};
-        fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-
-        VkFence fence = nullptr;
-
-        VkResultSuccess(device_functions.vkCreateFence(window.device(), &fence_info, nullptr, &fence));
-        VkResultSuccess(device_functions.vkQueueSubmit(queue, 1, &submit_info, fence));
-        VkResultSuccess(device_functions.vkWaitForFences(window.device(), 1, &fence, VK_TRUE, 100000000000));
-
-        device_functions.vkDestroyFence(window.device(), fence, nullptr);
-        device_functions.vkFreeCommandBuffers(window.device(), pool, 1, &commandBuffer);
-    }
-
-    static VkCommandBuffer CreateCommandBuffer(VkCommandBufferLevel level, const QVulkanWindow& window)
-    {
-        auto& device_functions = *window.vulkanInstance()->deviceFunctions(window.device());
-
-        VkCommandBufferAllocateInfo allocate_info{};
-        allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocate_info.commandPool = window.graphicsCommandPool();
-        allocate_info.level = level;
-        allocate_info.commandBufferCount = 1;
-        VkCommandBuffer cmd_buffer = nullptr;
-        VkResultSuccess(device_functions.vkAllocateCommandBuffers(window.device(), &allocate_info, &cmd_buffer));
-
-        VkCommandBufferBeginInfo begin_info{};
-        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-        VkResultSuccess(device_functions.vkBeginCommandBuffer(cmd_buffer, &begin_info));
-        return cmd_buffer;
-    }
-
-    static VkSampler CreateSampler(const QVulkanWindow& window)
-    {
-        VkSamplerCreateInfo sampler = {};
-        sampler.sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        sampler.magFilter        = VK_FILTER_NEAREST;
-        sampler.minFilter        = VK_FILTER_NEAREST;
-        sampler.mipmapMode       = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        sampler.addressModeU     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        sampler.addressModeV     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        sampler.addressModeW     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        sampler.mipLodBias       = 0.0f;
-        sampler.compareOp        = VK_COMPARE_OP_NEVER;
-        sampler.minLod           = 0.0f;
-        sampler.maxLod           = 0.0f;
-        sampler.maxAnisotropy    = 1.0;
-        sampler.anisotropyEnable = VK_FALSE;
-        sampler.borderColor      = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-
-        VkSampler res = nullptr;
-        VkResultSuccess(window.vulkanInstance()->deviceFunctions(window.device())->vkCreateSampler(
-            window.device(), &sampler, nullptr, &res
-        ));
-        return res;
-    }
-
-    static VkImageView CreateImageView(VkImage image, const QVulkanWindow& window)
-    {
-        VkImageViewCreateInfo view = {};
-        view.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        view.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-        view.format                          = format;
-        view.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        view.subresourceRange.baseMipLevel   = 0;
-        view.subresourceRange.baseArrayLayer = 0;
-        view.subresourceRange.layerCount     = 1;
-        view.subresourceRange.levelCount     = 1;
-        view.image                           = image;
-
-        view.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-        VkImageView res = nullptr;
-        VkResultSuccess(window.vulkanInstance()->deviceFunctions(window.device())->vkCreateImageView(
-            window.device(), &view, nullptr, &res
-        ));
-        return res;
-    }
+    QImage image;
 
 public:
-    Texture(const QString& url, const QVulkanWindow& window)
-        : m_window(window)
-        , m_sampler(CreateSampler(window))
-        , m_device(m_window.device())
-        , m_vulkan_functions(*m_window.vulkanInstance()->functions())
-        , m_device_functions(*m_window.vulkanInstance()->deviceFunctions(m_device))
+    TextureSource(const QString& url)
+        : image(url)
     {
-        QImage texure_image(url);
-        if (texure_image.isNull())
+        if (image.isNull())
             throw IvalidPath(url.toStdString());
 
-        texure_image = texure_image.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
-
-        auto upload_create_info  = GetImageCreateInfo(texure_image, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-        auto texture_create_info = GetImageCreateInfo(texure_image, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
-
-        VkImage upload_image = nullptr;
-        VkResultSuccess(m_device_functions.vkCreateImage(m_device, &upload_create_info,  nullptr, &upload_image));
-        VkDeviceMemory upload_buffer = Allocate(upload_image, window.hostVisibleMemoryIndex(), window);
-        VkResultSuccess(m_device_functions.vkBindImageMemory(m_device, upload_image, upload_buffer, 0));
-        FillImageData(texure_image, upload_image, upload_buffer, window);
-
-        VkResultSuccess(m_device_functions.vkCreateImage(m_device, &texture_create_info, nullptr, &m_image));
-        m_image_buffer = Allocate(m_image, window.deviceLocalMemoryIndex(), window);
-        VkResultSuccess(m_device_functions.vkBindImageMemory(m_device, m_image, m_image_buffer, 0));
-
-        VkCommandBuffer copy_cmd = CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, window);
-
-        VkImageSubresourceRange subresourceRange = {};
-        subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        subresourceRange.baseMipLevel = 0;
-        subresourceRange.levelCount = 1;
-        subresourceRange.layerCount = 1;
-
-        VkImageMemoryBarrier barrier = {};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.levelCount = barrier.subresourceRange.layerCount = 1;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        barrier.image = upload_image;
-
-        m_device_functions.vkCmdPipelineBarrier(copy_cmd,
-            VK_PIPELINE_STAGE_HOST_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0, 0, nullptr, 0, nullptr,
-            1, &barrier
-        );
-
-        barrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.image = m_image;
-        m_device_functions.vkCmdPipelineBarrier(copy_cmd,
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                VK_PIPELINE_STAGE_TRANSFER_BIT,
-                0, 0, nullptr, 0, nullptr,
-                1, &barrier
-        );
-
-        VkImageCopy copy_info = {};
-        copy_info.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        copy_info.srcSubresource.layerCount = 1;
-        copy_info.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        copy_info.dstSubresource.layerCount = 1;
-        copy_info.extent.width  = texure_image.width();
-        copy_info.extent.height = texure_image.height();
-        copy_info.extent.depth = 1;
-        m_device_functions.vkCmdCopyImage(copy_cmd,
-            upload_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1, &copy_info);
-
-        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        barrier.image = m_image;
-        m_device_functions.vkCmdPipelineBarrier(copy_cmd,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            0, 0, nullptr, 0, nullptr,
-            1, &barrier
-        );
-
-        FlushCommandBuffer(copy_cmd, window.graphicsQueue(), window.graphicsCommandPool(), window);
-
-        m_view = CreateImageView(m_image, window);
+        image = image.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
     }
 
-    VkDescriptorImageInfo GetInfo() const
+    ~TextureSource() override = default;
+
+    void FillMappedData(const IMappedData& data) const override
     {
-        VkDescriptorImageInfo info{};
-        info.sampler = m_sampler;
-        info.imageView = m_view;
-        info.imageLayout = layout;
-        return info;
+        auto mapped_data = data.GetData();
+        for (int y = 0; y < image.height(); ++y)
+        {
+            auto row_pitch = image.width() * 4; // todo: provide format or row pith
+            memcpy(mapped_data, image.constScanLine(y), row_pitch);
+            mapped_data += row_pitch;
+        }
     }
 
-    ~Texture()
+    uint32_t GetWidth() const override
     {
-        //auto device = m_window.device();
-        //auto& device_functions = *m_window.vulkanInstance()->deviceFunctions(device);
-        //
-        //device_functions.vkDestroyImageView(device, m_view, nullptr);
-        //device_functions.vkDestroyImage(device, m_image, nullptr);
-        //device_functions.vkDestroySampler(device, m_sampler, nullptr);
-        //device_functions.vkFreeMemory(device, m_image_buffer, nullptr);
+        return image.width();
     }
 
-    static constexpr VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    static constexpr VkFormat      format = VK_FORMAT_R8G8B8A8_UNORM;
-private:
-    VkDevice m_device = nullptr;
-    VkImage  m_image = nullptr;
-    VkSampler m_sampler = nullptr;
-    VkImageView m_view = nullptr;
-    VkDeviceMemory m_image_buffer = nullptr;
-
-    QVulkanFunctions&       m_vulkan_functions;
-    QVulkanDeviceFunctions& m_device_functions;
+    uint32_t GetHeight() const override
+    {
+        return image.height();
+    }
 };
 
 class IndexedBuffer
@@ -505,7 +251,7 @@ class DescriptorSet
     VkDescriptorPool      m_descriptor_pool = nullptr;
     VkPipelineLayout      m_pipeline_layout = nullptr;
 public:
-    DescriptorSet(const Texture& texture, const UniformBuffer& uniform_buffer, const QVulkanWindow& window)
+    DescriptorSet(const Vulkan::Texture& texture, const UniformBuffer& uniform_buffer, const QVulkanWindow& window)
     {
         auto device = window.device();
         auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
@@ -710,25 +456,25 @@ public:
             }
         };
 
-        VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
-        pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pipelineCreateInfo.layout = descriptor_set.GetPipelineLayout();
-        pipelineCreateInfo.renderPass = window.defaultRenderPass();
-        pipelineCreateInfo.flags = 0;
-        pipelineCreateInfo.basePipelineIndex = -1;
-        pipelineCreateInfo.basePipelineHandle = nullptr;
+        VkGraphicsPipelineCreateInfo pipeline_info{};
+        pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipeline_info.layout = descriptor_set.GetPipelineLayout();
+        pipeline_info.renderPass = window.defaultRenderPass();
+        pipeline_info.flags = 0;
+        pipeline_info.basePipelineIndex = -1;
+        pipeline_info.basePipelineHandle = nullptr;
 
         auto vertex_info = vertex.GetVertexLayoutInfo();
-        pipelineCreateInfo.pVertexInputState    = &vertex_info;
-        pipelineCreateInfo.pInputAssemblyState  = &input_assembly_state_info;
-        pipelineCreateInfo.pRasterizationState  = &rasterization_state_info;
-        pipelineCreateInfo.pColorBlendState     = &color_blend_state_info;
-        pipelineCreateInfo.pMultisampleState    = &multisample_state_info;
-        pipelineCreateInfo.pViewportState       = &viewport_state_info;
-        pipelineCreateInfo.pDepthStencilState   = &depth_stencil_state_info;
-        pipelineCreateInfo.pDynamicState        = &dynamic_state_info;
-        pipelineCreateInfo.stageCount           = static_cast<uint32_t>(shader_stages.size());
-        pipelineCreateInfo.pStages              = shader_stages.data();
+        pipeline_info.pVertexInputState    = &vertex_info;
+        pipeline_info.pInputAssemblyState  = &input_assembly_state_info;
+        pipeline_info.pRasterizationState  = &rasterization_state_info;
+        pipeline_info.pColorBlendState     = &color_blend_state_info;
+        pipeline_info.pMultisampleState    = &multisample_state_info;
+        pipeline_info.pViewportState       = &viewport_state_info;
+        pipeline_info.pDepthStencilState   = &depth_stencil_state_info;
+        pipeline_info.pDynamicState        = &dynamic_state_info;
+        pipeline_info.stageCount           = static_cast<uint32_t>(shader_stages.size());
+        pipeline_info.pStages              = shader_stages.data();
 
         auto device = window.device();
         auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
@@ -737,7 +483,7 @@ public:
         pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 
         VkResultSuccess(device_functions.vkCreatePipelineCache(device, &pipelineCacheCreateInfo, nullptr, &m_pipeline_cache));
-        VkResultSuccess(device_functions.vkCreateGraphicsPipelines(device, m_pipeline_cache, 1, &pipelineCreateInfo, nullptr, &m_pipeline));
+        VkResultSuccess(device_functions.vkCreateGraphicsPipelines(device, m_pipeline_cache, 1, &pipeline_info, nullptr, &m_pipeline));
     }
 
     void OnFrame(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) override
@@ -755,7 +501,7 @@ private:
 class VulkanRenderer
     : public IVulkanRenderer
 {
-    std::unique_ptr<Texture>       m_texture;
+    std::unique_ptr<Vulkan::Texture> m_texture;
     std::unique_ptr<IndexedBuffer> m_geometry;
     std::unique_ptr<UniformBuffer> m_uniform;
     std::unique_ptr<DescriptorSet> m_descriptor_set;
@@ -785,7 +531,7 @@ public:
     void initResources() override
     {
         m_vulkan_factory = IVulkanFactory::Create(m_window);
-        m_texture = std::make_unique<Texture>(":/dirt.png", m_window);
+        m_texture = std::make_unique<Vulkan::Texture>(*m_vulkan_factory, TextureSource(":/dirt.png"), VK_FORMAT_R8G8B8A8_UNORM);
         m_geometry = std::make_unique<IndexedBuffer>(*m_vulkan_factory);
         m_uniform = std::make_unique<UniformBuffer>(*m_vulkan_factory, m_window);
         m_descriptor_set = std::make_unique<DescriptorSet>(*m_texture, *m_uniform, m_window);
