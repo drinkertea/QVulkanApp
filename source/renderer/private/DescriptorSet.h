@@ -21,9 +21,9 @@ namespace Vulkan
         QVulkanDeviceFunctions& functions;
         VkDevice device = nullptr;
 
-        VkDescriptorSetLayout m_descriptor_set_layout = nullptr;
-        VkDescriptorSet       m_descriptor_set = nullptr;
-        VkDescriptorPool      m_descriptor_pool = nullptr;
-        VkPipelineLayout      m_pipeline_layout = nullptr;
+        VkDescriptorSetLayout descriptor_set_layout = nullptr;
+        VkDescriptorSet       descriptor_set = nullptr;
+        VkDescriptorPool      descriptor_pool = nullptr;
+        VkPipelineLayout      pipeline_layout = nullptr;
     };
 }

@@ -66,50 +66,50 @@ namespace Vulkan
         pool_info.pPoolSizes    = pool_sizes.data();
         pool_info.maxSets       = 2;
 
-        Vulkan::VkResultSuccess(device_functions.vkCreateDescriptorPool(device, &pool_info, nullptr, &m_descriptor_pool));
+        Vulkan::VkResultSuccess(device_functions.vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptor_pool));
 
         VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info{};
         descriptor_set_layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         descriptor_set_layout_info.pBindings = binding_layouts.data();
         descriptor_set_layout_info.bindingCount = static_cast<uint32_t>(binding_layouts.size());
 
-        Vulkan::VkResultSuccess(device_functions.vkCreateDescriptorSetLayout(device, &descriptor_set_layout_info, nullptr, &m_descriptor_set_layout));
+        Vulkan::VkResultSuccess(device_functions.vkCreateDescriptorSetLayout(device, &descriptor_set_layout_info, nullptr, &descriptor_set_layout));
 
         VkPipelineLayoutCreateInfo pipeline_layout_info{};
         pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipeline_layout_info.setLayoutCount = 1;
-        pipeline_layout_info.pSetLayouts = &m_descriptor_set_layout;
+        pipeline_layout_info.pSetLayouts = &descriptor_set_layout;
 
-        Vulkan::VkResultSuccess(device_functions.vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &m_pipeline_layout));
+        Vulkan::VkResultSuccess(device_functions.vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &pipeline_layout));
 
         VkDescriptorSetAllocateInfo descriptor_set_info{};
         descriptor_set_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        descriptor_set_info.descriptorPool     = m_descriptor_pool;
-        descriptor_set_info.pSetLayouts        = &m_descriptor_set_layout;
+        descriptor_set_info.descriptorPool     = descriptor_pool;
+        descriptor_set_info.pSetLayouts        = &descriptor_set_layout;
         descriptor_set_info.descriptorSetCount = 1;
 
-        Vulkan::VkResultSuccess(device_functions.vkAllocateDescriptorSets(device, &descriptor_set_info, &m_descriptor_set));
+        Vulkan::VkResultSuccess(device_functions.vkAllocateDescriptorSets(device, &descriptor_set_info, &descriptor_set));
 
         for (uint32_t i = 0; i < bindings.size(); ++i)
-            write_descriptor_sets[i].dstSet = m_descriptor_set;
+            write_descriptor_sets[i].dstSet = descriptor_set;
 
         device_functions.vkUpdateDescriptorSets(device, static_cast<uint32_t>(write_descriptor_sets.size()), write_descriptor_sets.data(), 0, nullptr);
     }
 
     DescriptorSet::~DescriptorSet()
     {
-        functions.vkDestroyDescriptorSetLayout(device, m_descriptor_set_layout, nullptr);
-        functions.vkDestroyPipelineLayout(device, m_pipeline_layout, nullptr);
-        functions.vkDestroyDescriptorPool(device, m_descriptor_pool, nullptr);
+        functions.vkDestroyDescriptorSetLayout(device, descriptor_set_layout, nullptr);
+        functions.vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
+        functions.vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
     }
 
     void DescriptorSet::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf)
     {
-        vulkan.vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &m_descriptor_set, 0, NULL);
+        vulkan.vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, NULL);
     }
 
     VkPipelineLayout DescriptorSet::GetPipelineLayout() const
     {
-        return m_pipeline_layout;
+        return pipeline_layout;
     }
 }
