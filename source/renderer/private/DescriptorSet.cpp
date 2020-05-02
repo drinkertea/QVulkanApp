@@ -101,7 +101,7 @@ namespace Vulkan
         functions.vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
     }
 
-    void DescriptorSet::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf)
+    void DescriptorSet::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const
     {
         vulkan.vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, NULL);
     }

@@ -142,7 +142,12 @@ namespace Vulkan
         layout.bindings.emplace_back(binding_desc);
     }
 
-    void VertexBuffer::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf)
+    void VertexBuffer::Update(const IDataProvider& data)
+    {
+        BufferBase::Update(data);
+    }
+
+    void VertexBuffer::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const
     {
         VkDeviceSize offsets[1] = { 0 };
         vulkan.vkCmdBindVertexBuffers(cmd_buf, binding_index, 1, &buffer.buffer, offsets);
@@ -172,13 +177,24 @@ namespace Vulkan
             data.GetData(),
             window
         ), window)
+        , index_count(data.GetWidth())
     {
         BufferBase::Update(data);
     }
 
-    void IndexBuffer::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf)
+    void IndexBuffer::Update(const IDataProvider& data)
+    {
+        BufferBase::Update(data);
+    }
+
+    void IndexBuffer::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const
     {
         vulkan.vkCmdBindIndexBuffer(cmd_buf, buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    }
+
+    uint32_t IndexBuffer::GetIndexCount() const
+    {
+        return index_count;
     }
 
     UniformBuffer::UniformBuffer(const IDataProvider& data, const QVulkanWindow& window)
@@ -189,6 +205,11 @@ namespace Vulkan
             data.GetData(),
             window
         ), window)
+    {
+        BufferBase::Update(data);
+    }
+
+    void UniformBuffer::Update(const IDataProvider& data)
     {
         BufferBase::Update(data);
     }

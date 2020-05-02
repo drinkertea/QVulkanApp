@@ -28,6 +28,8 @@ ADD_LIBRARY(VulkanRenderer STATIC
     private/DescriptorSet.cpp
     private/Pipeline.h
     private/Pipeline.cpp
+    private/RenderPass.h
+    private/RenderPass.cpp
 )
 
 target_include_directories(VulkanRenderer PRIVATE include)

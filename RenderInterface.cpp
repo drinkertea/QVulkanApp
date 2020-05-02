@@ -1,22 +1,12 @@
-#include "source\renderer\private\DescriptorSet.h"
-#include "source\renderer\private\DescriptorSet.h"
-#include <QVulkanFunctions>
 #include <QFile>
 #include <QVector2D>
-
-#include <array>
-#include <iostream>
-#include <sstream>
+#include <QVulkanFunctions>
 
 #include "RenderInterface.h"
 #include "Camera.h"
 
 #include "IRenderer.h"
-#include "source/renderer/private/Texture.h"
-#include "source/renderer/private/Buffer.h"
-#include "source/renderer/private/Shader.h"
-#include "source/renderer/private/Pipeline.h"
-#include "source/renderer/private/DescriptorSet.h"
+#include "IFactory.h"
 
 struct IvalidPath : public std::runtime_error
 {
@@ -24,12 +14,6 @@ struct IvalidPath : public std::runtime_error
         : std::runtime_error("Cannot find the path specified: " + msg)
     {
     }
-};
-
-struct IFrameCallback
-{
-    virtual void OnFrame(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) = 0;
-    virtual ~IFrameCallback() = default;
 };
 
 class TextureSource
@@ -110,7 +94,7 @@ public:
 
     uint32_t GetWidth() const override
     {
-        return vertices.size();
+        return static_cast<uint32_t>(vertices.size());
     }
 
     uint32_t GetHeight() const override
@@ -144,7 +128,7 @@ public:
 
     uint32_t GetWidth() const override
     {
-        return indices.size();
+        return static_cast<uint32_t>(indices.size());
     }
 
     uint32_t GetHeight() const override
@@ -199,7 +183,7 @@ public:
 
     uint32_t GetSize() const override
     {
-        return data.size();
+        return static_cast<uint32_t>(data.size());
     }
 
     uint32_t GetDepth() const override
@@ -268,16 +252,17 @@ public:
     }
 };
 
-
 class VulkanRenderer
     : public IVulkanRenderer
 {
-    std::unique_ptr<Vulkan::Texture> m_texture;
-    std::unique_ptr<Vulkan::IndexBuffer> m_index_buffer;
-    std::unique_ptr<Vulkan::VertexBuffer> m_vertex_buffer;
-    std::unique_ptr<Vulkan::UniformBuffer> m_uniform;
-    std::unique_ptr<Vulkan::DescriptorSet> m_descriptor_set;
-    std::unique_ptr<Vulkan::Pipeline>      m_pipeline;
+    QVulkanWindow& m_window;
+
+    std::unique_ptr<Vulkan::IFactory> factory;
+    Vulkan::IIndexBuffer*   index_buffer = nullptr;
+    Vulkan::IVertexBuffer*  vertex_buffer = nullptr;
+    Vulkan::IUniformBuffer* uniform_buffer = nullptr;
+    Vulkan::IDescriptorSet* descriptor_set = nullptr;
+    Vulkan::IPipeline*      pipeline = nullptr;
 
     UniformData uniform_data{};
 
@@ -304,7 +289,9 @@ public:
 
     void initResources() override
     {
-        m_texture = std::make_unique<Vulkan::Texture>(TextureSource(":/dirt.png"), m_window, VK_FORMAT_R8G8B8A8_UNORM);
+        factory = CreateFactory(m_window);
+
+        auto& dirt_texture = factory->CreateTexture(TextureSource(":/dirt.png"));
 
         Vulkan::Attributes attribs;
         attribs.push_back(Vulkan::AttributeFormat::vec3f);
@@ -313,21 +300,23 @@ public:
 
         uniform_data.Update(camera);
 
-        m_vertex_buffer = std::make_unique<Vulkan::VertexBuffer>(VertexData{}, attribs, m_window);
-        m_index_buffer = std::make_unique<Vulkan::IndexBuffer>(IndexData{}, m_window);
-        m_uniform = std::make_unique<Vulkan::UniformBuffer>(uniform_data, m_window);
+        vertex_buffer = &factory->CreateVertexBuffer(VertexData{}, attribs);
+        index_buffer  = &factory->CreateIndexBuffer(IndexData{});
+
+        uniform_buffer = &factory->CreateUniformBuffer(uniform_data);
+
         Vulkan::InputResources bindings = {
-            *m_uniform,
-            *m_texture,
+            *uniform_buffer,
+            dirt_texture,
         };
 
-        m_descriptor_set = std::make_unique<Vulkan::DescriptorSet>(bindings, m_window);
+        descriptor_set = &factory->CreateDescriptorSet(bindings);
 
-        Vulkan::Shader vertex(ShaderData(":/texture.vert.spv"), Vulkan::ShaderType::vertex, m_window);
-        Vulkan::Shader fragment(ShaderData(":/texture.frag.spv"), Vulkan::ShaderType::fragment, m_window);
+        auto& vertex = factory->CreateShader(ShaderData(":/texture.vert.spv"), Vulkan::ShaderType::vertex);
+        auto& fragment = factory->CreateShader(ShaderData(":/texture.frag.spv"), Vulkan::ShaderType::fragment);
         Vulkan::Shaders shaders = { vertex, fragment };
 
-        m_pipeline = std::make_unique<Vulkan::Pipeline>(*m_descriptor_set, shaders, *m_vertex_buffer, m_window);
+        pipeline = &factory->CreatePipeline(*descriptor_set, shaders, *vertex_buffer);
     }
 
     void OnKeyPressed(Qt::Key key) override
@@ -400,57 +389,12 @@ public:
 
     void Render()
     {
-        auto device = m_window.device();
-        auto& device_functions = *m_window.vulkanInstance()->deviceFunctions(device);
-
-        VkCommandBuffer command_buffer = m_window.currentCommandBuffer();
-        const QSize size = m_window.swapChainImageSize();
-
-        VkClearColorValue defaultClearColor = { { 0.025f, 0.025f, 0.025f, 1.0f } };
-
-        VkCommandBufferBeginInfo command_buffer_info{};
-        command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        VkClearValue clearValues[2];
-        clearValues[0].color = defaultClearColor;
-        clearValues[1].depthStencil = { 1.0f, 0 };
-
-        VkRenderPassBeginInfo renderPassBeginInfo{};
-        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        renderPassBeginInfo.framebuffer = m_window.currentFramebuffer();
-        renderPassBeginInfo.renderPass = m_window.defaultRenderPass();
-        renderPassBeginInfo.renderArea.offset.x = 0;
-        renderPassBeginInfo.renderArea.offset.y = 0;
-        renderPassBeginInfo.renderArea.extent.width = size.width();
-        renderPassBeginInfo.renderArea.extent.height = size.height();
-        renderPassBeginInfo.clearValueCount = 2;
-        renderPassBeginInfo.pClearValues = clearValues;
-
-        device_functions.vkCmdBeginRenderPass(command_buffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        VkViewport viewport{};
-        viewport.width = size.width();
-        viewport.height = size.height();
-        viewport.minDepth = 0;
-        viewport.maxDepth = 0;
-        device_functions.vkCmdSetViewport(command_buffer, 0, 1, &viewport);
-
-        VkRect2D scissor{};
-        scissor.extent.width = size.width();
-        scissor.extent.height = size.height();
-        scissor.offset.x = 0;
-        scissor.offset.y = 0;
-        device_functions.vkCmdSetScissor(command_buffer, 0, 1, &scissor);
-
-        m_descriptor_set->Bind(device_functions, command_buffer);
-        m_pipeline->Bind(device_functions, command_buffer);
-        m_index_buffer->Bind(device_functions, command_buffer);
-        m_vertex_buffer->Bind(device_functions, command_buffer);
-
-        device_functions.vkCmdDrawIndexed(command_buffer, 6, 1, 0, 0, 0);
-
-
-        device_functions.vkCmdEndRenderPass(command_buffer);
-
+        {
+            auto render_pass = factory->CreateRenderPass();
+            render_pass->Bind(*descriptor_set);
+            render_pass->Bind(*pipeline);
+            render_pass->Draw(*index_buffer, *vertex_buffer);
+        }
         m_window.frameReady();
         m_window.requestUpdate();
     }
@@ -464,7 +408,6 @@ public:
         return windowTitle;
     }
 
-
     void startNextFrame() override
     {
         auto render_start = std::chrono::high_resolution_clock::now();
@@ -472,7 +415,7 @@ public:
         {
             view_updated = false;
             uniform_data.Update(camera);
-            m_uniform->BufferBase::Update(uniform_data);
+            uniform_buffer->Update(uniform_data);
         }
 
         Render();
@@ -505,9 +448,6 @@ public:
             lastTimestamp = render_end;
         }
     }
-
-private:
-    QVulkanWindow& m_window;
 };
 
 std::unique_ptr<IVulkanRenderer> IVulkanRenderer::Create(QVulkanWindow& window)

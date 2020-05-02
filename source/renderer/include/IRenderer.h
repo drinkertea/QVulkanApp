@@ -31,18 +31,19 @@ struct IBuffer
     virtual ~IBuffer() = default;
 };
 
-struct IIndexBuffer
+struct IIndexBuffer : public IBuffer
 {
     virtual ~IIndexBuffer() = default;
 };
 
-struct IVertexBuffer
+struct IVertexBuffer : public IBuffer
 {
     virtual ~IVertexBuffer() = default;
 };
 
 struct IUniformBuffer
     : public IInputResource
+    , public IBuffer
 {
     virtual ~IUniformBuffer() = default;
 };
