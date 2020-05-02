@@ -64,6 +64,12 @@ namespace Vulkan
         virtual ~IDescriptorSet() = default;
     };
 
+    enum class ShaderType
+    {
+        vertex = 0,
+        fragment,
+    };
+
     struct IShader
     {
         virtual ~IShader() = default;
@@ -89,6 +95,7 @@ namespace Vulkan
         virtual IVertexBuffer&  CreateVertexBuffer (const IDataProvider&, const Attributes&) = 0;
         virtual IIndexBuffer&   CreateIndexBuffer  (const IDataProvider&) = 0;
         virtual IUniformBuffer& CreateUniformBuffer(const IDataProvider&) = 0;
+        virtual IShader&        CreateShader       (const IDataProvider&, ShaderType) = 0;
         virtual IDescriptorSet& CreateDescriptorSet(const InputResources&) = 0;
         virtual IPipeline&      CreatePipeline     (const IDescriptorSet&, const Shaders&) = 0;
         virtual ~IFactory() = default;

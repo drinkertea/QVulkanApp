@@ -23,6 +23,8 @@ ADD_LIBRARY(VulkanRenderer STATIC
     private/MappedData.cpp
     private/Buffer.h
     private/Buffer.cpp
+    private/Shader.h
+    private/Shader.cpp
     private/DescriptorSet.h
     private/DescriptorSet.cpp
 )
