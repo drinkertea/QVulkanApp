@@ -13,6 +13,7 @@
 
 #include "IRenderer.h"
 #include "source/renderer/private/Texture.h"
+#include "source/renderer/private/Buffer.h"
 
 struct IvalidPath : public std::runtime_error
 {
@@ -84,8 +85,8 @@ public:
     }
 };
 
-class IndexedBuffer
-    : public IFrameCallback
+class VertexData
+    : public Vulkan::IDataProvider
 {
     struct Vertex {
         float pos[3];
@@ -93,104 +94,79 @@ class IndexedBuffer
         float normal[3];
     };
 
-    struct
+    std::vector<Vertex> vertices =
     {
-        VkPipelineVertexInputStateCreateInfo GetDesc() const
-        {
-            VkPipelineVertexInputStateCreateInfo desc{};
-            desc.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-            desc.vertexBindingDescriptionCount   = static_cast<uint32_t>(bindings.size());
-            desc.pVertexBindingDescriptions      = bindings.data();
-            desc.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributes.size());
-            desc.pVertexAttributeDescriptions    = attributes.data();
-            return desc;
-        }
-
-        std::vector<VkVertexInputBindingDescription>   bindings;
-        std::vector<VkVertexInputAttributeDescription> attributes;
-    } vertex_layout;
+        { {  1.0f,  1.0f, 0.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { -1.0f,  1.0f, 0.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+        { {  1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } }
+    };
 
 public:
-    IndexedBuffer(Vulkan::IVulkanFactory& vulkan_factory)
+    ~VertexData() override = default;
+
+    uint32_t GetWidth() const override
     {
-        std::vector<Vertex> vertices =
-        {
-            { {  1.0f,  1.0f, 0.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-            { { -1.0f,  1.0f, 0.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-            { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-            { {  1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } }
-        };
-
-        std::vector<uint32_t> indices = { 0,1,2, 2,3,0 };
-        m_index_count = static_cast<uint32_t>(indices.size());
-
-        m_vectex_buffer = vulkan_factory.CreateBuffer(
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            vertices.size() * sizeof(Vertex),
-            vertices.data()
-        );
-
-        m_index_buffer = vulkan_factory.CreateBuffer(
-            VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            indices.size() * sizeof(uint32_t),
-            indices.data()
-        );
-
-        VkVertexInputBindingDescription binding_desc{};
-        binding_desc.binding   = binding_index;
-        binding_desc.stride    = sizeof(Vertex);
-        binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-        vertex_layout.bindings.emplace_back(binding_desc);
-
-        VkVertexInputAttributeDescription attribute_desc{};
-        attribute_desc.binding  = binding_index;
-
-        attribute_desc.location = 0;
-        attribute_desc.format   = VK_FORMAT_R32G32B32_SFLOAT;
-        attribute_desc.offset   = offsetof(Vertex, pos);
-        vertex_layout.attributes.emplace_back(attribute_desc);
-
-        attribute_desc.location = 1;
-        attribute_desc.format = VK_FORMAT_R32G32_SFLOAT;
-        attribute_desc.offset = offsetof(Vertex, uv);
-        vertex_layout.attributes.emplace_back(attribute_desc);
-
-        attribute_desc.location = 2;
-        attribute_desc.format = VK_FORMAT_R32G32B32_SFLOAT;
-        attribute_desc.offset = offsetof(Vertex, normal);
-        vertex_layout.attributes.emplace_back(attribute_desc);
+        return vertices.size();
     }
 
-    void OnFrame(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) override
+    uint32_t GetHeight() const override
     {
-        VkDeviceSize offsets[1] = { 0 };
-        vulkan.vkCmdBindVertexBuffers(cmd_buf, binding_index, 1, &m_vectex_buffer.buffer, offsets);
-        vulkan.vkCmdBindIndexBuffer(cmd_buf, m_index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-        vulkan.vkCmdDrawIndexed(cmd_buf, m_index_count, 1, 0, 0, 0);
+        return 1;
     }
 
-    VkPipelineVertexInputStateCreateInfo GetVertexLayoutInfo() const
+    const uint8_t* GetData() const override
     {
-        return vertex_layout.GetDesc();
+        return reinterpret_cast<const uint8_t*>(vertices.data());
     }
 
-    ~IndexedBuffer()
+    uint32_t GetSize() const override
     {
-        // TODO
+        return GetWidth() * sizeof(Vertex);
     }
 
-    static constexpr uint32_t binding_index = 0;
-
-private:
-    uint32_t m_index_count = 0;
-    Vulkan::Buffer m_index_buffer{};
-    Vulkan::Buffer m_vectex_buffer{};
+    uint32_t GetDepth() const override
+    {
+        return 1;
+    }
 };
 
-class UniformBuffer
+class IndexData
+    : public Vulkan::IDataProvider
+{
+    std::vector<uint32_t> indices = { 0,1,2, 2,3,0 };
+
+public:
+    ~IndexData() override = default;
+
+    uint32_t GetWidth() const override
+    {
+        return indices.size();
+    }
+
+    uint32_t GetHeight() const override
+    {
+        return 1;
+    }
+
+    const uint8_t* GetData() const override
+    {
+        return reinterpret_cast<const uint8_t*>(indices.data());
+    }
+
+    uint32_t GetSize() const override
+    {
+        return GetWidth() * sizeof(uint32_t);
+    }
+
+    uint32_t GetDepth() const override
+    {
+        return 1;
+    }
+};
+
+class UniformData
+    : public Vulkan::IDataProvider
 {
     struct {
         QMatrix4x4 projection;
@@ -198,24 +174,38 @@ class UniformBuffer
         QVector4D  view_pos;
     } m_ubo;
 
+    std::vector<uint8_t> data;
+
 public:
-    UniformBuffer(Vulkan::IVulkanFactory& vulkan_factory, const QVulkanWindow& window)
+    ~UniformData() override = default;
+
+    uint32_t GetWidth() const override
     {
-        m_buffer = vulkan_factory.CreateBuffer(
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            sizeof(m_ubo),
-            &m_ubo
-        );
-        auto device = window.device();
-        auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
-        Vulkan::VkResultSuccess(device_functions.vkMapMemory(device, m_buffer.memory, 0, m_buffer.size, 0, reinterpret_cast<void**>(&mapped)));
+        return 1;
+    }
+
+    uint32_t GetHeight() const override
+    {
+        return 1;
+    }
+
+    const uint8_t* GetData() const override
+    {
+        return reinterpret_cast<const uint8_t*>(data.data());
+    }
+
+    uint32_t GetSize() const override
+    {
+        return data.size();
+    }
+
+    uint32_t GetDepth() const override
+    {
+        return 1;
     }
 
     void Update(const Camera& camera)
     {
-        if (!mapped)
-            return;
         constexpr size_t mat_size = 16 * sizeof(float);
         constexpr size_t vec_size = 4 * sizeof(float);
 
@@ -223,29 +213,13 @@ public:
         m_ubo.model_view = camera.matrices.view;
         m_ubo.view_pos = camera.viewPos;
 
+        data.resize(mat_size * 2 + vec_size);
+        auto mapped = data.data();
         float t[4] = { m_ubo.view_pos[0], m_ubo.view_pos[1], m_ubo.view_pos[2], m_ubo.view_pos[3] };
         memcpy(mapped, m_ubo.projection.constData(), mat_size);
         memcpy(mapped + mat_size, m_ubo.model_view.constData(), mat_size);
         memcpy(mapped + 2 * mat_size, t, sizeof(t));
-
     }
-
-    VkDescriptorBufferInfo GetInfo() const
-    {
-        VkDescriptorBufferInfo info{};
-        info.buffer = m_buffer.buffer;
-        info.offset = 0;
-        info.range  = VK_WHOLE_SIZE;
-        return info;
-    }
-    ~UniformBuffer()
-    {
-        // TODO
-    }
-private:
-    uint8_t* mapped = nullptr;
-
-    Vulkan::Buffer m_buffer{};
 };
 
 class DescriptorSet
@@ -256,7 +230,7 @@ class DescriptorSet
     VkDescriptorPool      m_descriptor_pool = nullptr;
     VkPipelineLayout      m_pipeline_layout = nullptr;
 public:
-    DescriptorSet(const Vulkan::Texture& texture, const UniformBuffer& uniform_buffer, const QVulkanWindow& window)
+    DescriptorSet(const Vulkan::Texture& texture, const Vulkan::UniformBuffer& uniform_buffer, const QVulkanWindow& window)
     {
         auto device = window.device();
         auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
@@ -381,7 +355,7 @@ class Pipeline
     }
 
 public:
-    Pipeline(const IndexedBuffer& vertex, const DescriptorSet& descriptor_set, const QVulkanWindow& window)
+    Pipeline(const Vulkan::VertexBuffer& vertex, const DescriptorSet& descriptor_set, const QVulkanWindow& window)
     {
         VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info{};
         input_assembly_state_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -469,7 +443,7 @@ public:
         pipeline_info.basePipelineIndex = -1;
         pipeline_info.basePipelineHandle = nullptr;
 
-        auto vertex_info = vertex.GetVertexLayoutInfo();
+        auto vertex_info = vertex.GetLayout().GetDesc();
         pipeline_info.pVertexInputState    = &vertex_info;
         pipeline_info.pInputAssemblyState  = &input_assembly_state_info;
         pipeline_info.pRasterizationState  = &rasterization_state_info;
@@ -507,10 +481,13 @@ class VulkanRenderer
     : public IVulkanRenderer
 {
     std::unique_ptr<Vulkan::Texture> m_texture;
-    std::unique_ptr<IndexedBuffer> m_geometry;
-    std::unique_ptr<UniformBuffer> m_uniform;
+    std::unique_ptr<Vulkan::IndexBuffer> m_index_buffer;
+    std::unique_ptr<Vulkan::VertexBuffer> m_vertex_buffer;
+    std::unique_ptr<Vulkan::UniformBuffer> m_uniform;
     std::unique_ptr<DescriptorSet> m_descriptor_set;
     std::unique_ptr<Pipeline>      m_pipeline;
+
+    UniformData uniform_data{};
 
     Camera camera;
     QVector2D mouse_pos;
@@ -535,14 +512,20 @@ public:
 
     void initResources() override
     {
-        m_vulkan_factory = Vulkan::IVulkanFactory::Create(m_window);
         m_texture = std::make_unique<Vulkan::Texture>(TextureSource(":/dirt.png"), m_window, VK_FORMAT_R8G8B8A8_UNORM);
-        m_geometry = std::make_unique<IndexedBuffer>(*m_vulkan_factory);
-        m_uniform = std::make_unique<UniformBuffer>(*m_vulkan_factory, m_window);
-        m_descriptor_set = std::make_unique<DescriptorSet>(*m_texture, *m_uniform, m_window);
-        m_pipeline = std::make_unique<Pipeline>(*m_geometry, *m_descriptor_set, m_window);
 
-        m_uniform->Update(camera);
+        Vulkan::Attributes attribs;
+        attribs.push_back(Vulkan::AttributeFormat::vec3f);
+        attribs.push_back(Vulkan::AttributeFormat::vec2f);
+        attribs.push_back(Vulkan::AttributeFormat::vec3f);
+
+        uniform_data.Update(camera);
+
+        m_vertex_buffer = std::make_unique<Vulkan::VertexBuffer>(VertexData{}, attribs, m_window);
+        m_index_buffer = std::make_unique<Vulkan::IndexBuffer>(IndexData{}, m_window);
+        m_uniform = std::make_unique<Vulkan::UniformBuffer>(uniform_data, m_window);
+        m_descriptor_set = std::make_unique<DescriptorSet>(*m_texture, *m_uniform, m_window);
+        m_pipeline = std::make_unique<Pipeline>(*m_vertex_buffer, *m_descriptor_set, m_window);
     }
 
     void OnKeyPressed(Qt::Key key) override
@@ -658,7 +641,11 @@ public:
 
         m_descriptor_set->OnFrame(device_functions, command_buffer);
         m_pipeline->OnFrame(device_functions, command_buffer);
-        m_geometry->OnFrame(device_functions, command_buffer);
+        m_index_buffer->Bind(device_functions, command_buffer);
+        m_vertex_buffer->Bind(device_functions, command_buffer);
+
+        device_functions.vkCmdDrawIndexed(command_buffer, 6, 1, 0, 0, 0);
+
 
         device_functions.vkCmdEndRenderPass(command_buffer);
 
@@ -682,7 +669,8 @@ public:
         if (view_updated)
         {
             view_updated = false;
-            m_uniform->Update(camera);
+            uniform_data.Update(camera);
+            m_uniform->BufferBase::Update(uniform_data);
         }
 
         Render();
@@ -717,7 +705,6 @@ public:
     }
 
 private:
-    std::unique_ptr<Vulkan::IVulkanFactory> m_vulkan_factory;
     QVulkanWindow& m_window;
 };
 

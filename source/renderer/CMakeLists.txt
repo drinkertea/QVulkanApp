@@ -21,6 +21,8 @@ ADD_LIBRARY(VulkanRenderer STATIC
     private/ScopeCommandBuffer.cpp
     private/MappedData.h
     private/MappedData.cpp
+    private/Buffer.h
+    private/Buffer.cpp
 )
 
 target_include_directories(VulkanRenderer PRIVATE include)
