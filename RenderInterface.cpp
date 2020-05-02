@@ -319,6 +319,16 @@ public:
         pipeline = &factory->CreatePipeline(*descriptor_set, shaders, *vertex_buffer);
     }
 
+    void releaseResources() override
+    {
+        factory = nullptr;
+        index_buffer = nullptr;
+        vertex_buffer = nullptr;
+        uniform_buffer = nullptr;
+        descriptor_set = nullptr;
+        pipeline = nullptr;
+    }
+
     void OnKeyPressed(Qt::Key key) override
     {
         if (!camera.firstperson)
