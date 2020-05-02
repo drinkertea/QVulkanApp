@@ -2,7 +2,7 @@
 #include <QVulkanFunctions>
 
 #include "MappedData.h"
-#include "VulkanImage.h"
+#include "Texture.h"
 #include "VulkanUtils.h"
 
 namespace Vulkan
@@ -30,7 +30,7 @@ namespace Vulkan
         m_window.vulkanInstance()->deviceFunctions(m_window.device())->vkUnmapMemory(m_window.device(), memory);
     }
 
-    const IMappedData::bytes& MappedData::GetData() const
+    uint8_t*& MappedData::GetData()
     {
         return data;
     }

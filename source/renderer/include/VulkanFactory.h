@@ -2,14 +2,15 @@
 
 #include <vulkan/vulkan.h>
 
-#include "VulkanImage.h"
-
+#include "IRenderer.h"
 #include <memory>
 
 class QVulkanWindow;
 
 namespace Vulkan
 {
+
+std::unique_ptr<IFactory> CreateRenderFactory(const QVulkanWindow& window);
 
 struct Buffer
 {
@@ -38,31 +39,9 @@ struct IVulkanFactory
         void* data
     ) const = 0;
 
-    virtual Vulkan::Image CreateUploadImage(
-        VkFormat format,
-        uint32_t width,
-        uint32_t height
-    ) const = 0;
-
-    virtual Vulkan::Image Create2dImage(
-        VkFormat format,
-        uint32_t width,
-        uint32_t height
-    ) const = 0;
-
-    virtual VkSampler CreateSampler() const = 0;
-
-    virtual VkImageView CreateImageView(VkImage image, VkFormat format) const = 0;
-
-    virtual void CopyImage(
-        const Vulkan::Image& src,
-        const Vulkan::Image& dst,
-        const VkExtent3D& extent
-    ) const = 0;
-
-    virtual IMappedData::Ptr MapImage(const Vulkan::Image& img) const = 0;
-
     virtual ~IVulkanFactory() = default;
 };
+
+
 
 }

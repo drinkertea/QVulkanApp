@@ -33,10 +33,6 @@ add_executable(QVulkanApp
     RenderInterface.h
     RenderInterface.cpp
     VulkanFactory.cpp
-    ScopeCommandBuffer.h
-    ScopeCommandBuffer.cpp
-    MappedData.h
-    MappedData.cpp
     textures/textures.qrc
     shaders/shaders.qrc
 
