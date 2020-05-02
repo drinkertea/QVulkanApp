@@ -3,9 +3,6 @@
 #include "Buffer.h"
 #include "VulkanUtils.h"
 
-#include "ScopeCommandBuffer.h"
-#include "MappedData.h"
-
 #include <QVulkanFunctions>
 
 namespace Vulkan
