@@ -9,8 +9,6 @@
 #include <sstream>
 
 #include "RenderInterface.h"
-#include "VulkanFactory.h"
-#include "VulkanUtils.h"
 #include "Camera.h"
 
 #include "IRenderer.h"

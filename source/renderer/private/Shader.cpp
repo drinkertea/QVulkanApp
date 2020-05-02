@@ -1,6 +1,7 @@
-#include "VulkanUtils.h"
+#include "Utils.h"
 
 #include <QVulkanFunctions>
+#include <QVulkanWindow>
 #include "Shader.h"
 
 namespace Vulkan
