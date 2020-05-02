@@ -97,7 +97,7 @@ namespace Vulkan
         virtual IUniformBuffer& CreateUniformBuffer(const IDataProvider&) = 0;
         virtual IShader&        CreateShader       (const IDataProvider&, ShaderType) = 0;
         virtual IDescriptorSet& CreateDescriptorSet(const InputResources&) = 0;
-        virtual IPipeline&      CreatePipeline     (const IDescriptorSet&, const Shaders&) = 0;
+        virtual IPipeline&      CreatePipeline     (const IDescriptorSet&, const Shaders&, const IVertexBuffer&) = 0;
         virtual ~IFactory() = default;
     };
 }

@@ -1,7 +1,6 @@
 #include "Buffer.h"
 #include "VulkanUtils.h"
 
-
 #include <QVulkanFunctions>
 
 namespace Vulkan

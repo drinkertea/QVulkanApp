@@ -1,8 +1,4 @@
-#include "Texture.h"
 #include "VulkanUtils.h"
-
-#include "ScopeCommandBuffer.h"
-#include "MappedData.h"
 
 #include <QVulkanFunctions>
 #include "Shader.h"

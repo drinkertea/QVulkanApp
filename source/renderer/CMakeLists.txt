@@ -27,6 +27,8 @@ ADD_LIBRARY(VulkanRenderer STATIC
     private/Shader.cpp
     private/DescriptorSet.h
     private/DescriptorSet.cpp
+    private/Pipeline.h
+    private/Pipeline.cpp
 )
 
 target_include_directories(VulkanRenderer PRIVATE include)
