@@ -1,4 +1,5 @@
 #include "VulkanUtils.h"
+#include "include\VulkanUtils.h"
 
 namespace Vulkan
 {
@@ -60,6 +61,11 @@ namespace Vulkan
         view.image = image;
         view.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
         return view;
+    }
+
+    uint32_t GetMemoryIndex(uint32_t type_bits, VkMemoryPropertyFlags memory_property, const VkPhysicalDeviceMemoryProperties& props)
+    {
+        return uint32_t();
     }
 
     InvalidVulkanCall::InvalidVulkanCall()

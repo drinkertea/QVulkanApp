@@ -10,7 +10,9 @@
 #include "VulkanFactory.h"
 #include "VulkanUtils.h"
 #include "Camera.h"
-#include "VulkanImage.h"
+
+#include "IRenderer.h"
+#include "source/renderer/private/Texture.h"
 
 struct IvalidPath : public std::runtime_error
 {
@@ -27,41 +29,58 @@ struct IFrameCallback
 };
 
 class TextureSource
-    : public Vulkan::ITextureSource
+    : public Vulkan::IDataProvider
 {
-    QImage image;
+    std::vector<uint8_t> data;
+    uint32_t width = 0;
+    uint32_t height = 0;
 
 public:
     TextureSource(const QString& url)
-        : image(url)
     {
+        QImage image(url);
         if (image.isNull())
             throw IvalidPath(url.toStdString());
 
         image = image.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
-    }
 
-    ~TextureSource() override = default;
-
-    void FillMappedData(const Vulkan::IMappedData& data) const override
-    {
-        auto mapped_data = data.GetData();
-        for (int y = 0; y < image.height(); ++y)
+        width = image.width();
+        height = image.height();
+        data.resize(height * width * 4);
+        auto mapped_data = data.data();
+        for (uint32_t y = 0; y < height; ++y)
         {
-            auto row_pitch = image.width() * 4; // todo: provide format or row pith
+            auto row_pitch = width * 4; // todo: provide format or row pith
             memcpy(mapped_data, image.constScanLine(y), row_pitch);
             mapped_data += row_pitch;
         }
     }
 
+    ~TextureSource() override = default;
+
     uint32_t GetWidth() const override
     {
-        return image.width();
+        return width;
     }
 
     uint32_t GetHeight() const override
     {
-        return image.height();
+        return height;
+    }
+
+    const uint8_t* GetData() const override
+    {
+        return data.data();
+    }
+
+    uint32_t GetSize() const override
+    {
+        return static_cast<uint32_t>(data.size());
+    }
+
+    uint32_t GetDepth() const override
+    {
+        return 1;
     }
 };
 
@@ -517,7 +536,7 @@ public:
     void initResources() override
     {
         m_vulkan_factory = Vulkan::IVulkanFactory::Create(m_window);
-        m_texture = std::make_unique<Vulkan::Texture>(*m_vulkan_factory, TextureSource(":/dirt.png"), VK_FORMAT_R8G8B8A8_UNORM);
+        m_texture = std::make_unique<Vulkan::Texture>(TextureSource(":/dirt.png"), m_window, VK_FORMAT_R8G8B8A8_UNORM);
         m_geometry = std::make_unique<IndexedBuffer>(*m_vulkan_factory);
         m_uniform = std::make_unique<UniformBuffer>(*m_vulkan_factory, m_window);
         m_descriptor_set = std::make_unique<DescriptorSet>(*m_texture, *m_uniform, m_window);

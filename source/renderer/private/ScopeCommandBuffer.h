@@ -25,5 +25,4 @@ private:
     VkCommandBuffer command_buffer = nullptr;
 };
 
-
 }

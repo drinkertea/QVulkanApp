@@ -2,8 +2,6 @@
 
 #include <vulkan/vulkan.h>
 
-#include "VulkanFactory.h"
-
 class QVulkanWindow;
 
 namespace Vulkan
@@ -12,19 +10,18 @@ namespace Vulkan
 struct Image;
 
 class MappedData
-    : public IMappedData
 {
 public:
     MappedData(const Image& image, const QVulkanWindow& window);
-    ~MappedData() override;
+    ~MappedData();
 
-    const bytes& GetData() const override;
+    uint8_t*& GetData();
 
 private:
     const QVulkanWindow& m_window;
 
     VkDeviceMemory memory = nullptr;
-    bytes          data = nullptr;
+    uint8_t*       data = nullptr;
 };
 
 }
