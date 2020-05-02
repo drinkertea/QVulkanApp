@@ -4,17 +4,16 @@ find_package(Vulkan REQUIRED)
 find_package(Qt5 COMPONENTS GUI REQUIRED)
 
 file(GLOB PublicHeaders
-    include/VulkanUtils.h
-    include/VulkanFactory.h
+    include/IFactory.h
     include/IRenderer.h
 )
 source_group("Public" FILES ${PublicHeaders})
 
 ADD_LIBRARY(VulkanRenderer STATIC
     ${PublicHeaders}
-    VulkanUtils.cpp
-    private/Factory.h
     private/Factory.cpp
+    private/Utils.h
+    private/Utils.cpp
     private/Texture.h
     private/Texture.cpp
     private/ScopeCommandBuffer.h

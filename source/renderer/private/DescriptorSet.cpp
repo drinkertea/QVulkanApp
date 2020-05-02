@@ -1,9 +1,10 @@
 #include "DescriptorSet.h"
 #include "Texture.h"
 #include "Buffer.h"
-#include "VulkanUtils.h"
+#include "Utils.h"
 
 #include <QVulkanFunctions>
+#include <QVulkanWindow>
 
 namespace Vulkan
 {

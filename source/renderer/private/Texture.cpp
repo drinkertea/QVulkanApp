@@ -1,10 +1,11 @@
 #include "Texture.h"
-#include "VulkanUtils.h"
+#include "Utils.h"
 
 #include "ScopeCommandBuffer.h"
 #include "MappedData.h"
 
 #include <QVulkanFunctions>
+#include <QVulkanWindow>
 
 namespace Vulkan
 {

@@ -1,11 +1,13 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include "IRenderer.h"
 
 class QVulkanWindow;
 
 namespace Vulkan
 {
+
 class ScopeCommandBuffer
 {
 public:

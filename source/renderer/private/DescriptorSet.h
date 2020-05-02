@@ -1,8 +1,11 @@
 #pragma once
 
-#include <QVulkanWindow>
-
+#include <vulkan/vulkan.h>
 #include "IRenderer.h"
+#include "IFactory.h"
+
+class QVulkanDeviceFunctions;
+class QVulkanWindow;
 
 namespace Vulkan
 {

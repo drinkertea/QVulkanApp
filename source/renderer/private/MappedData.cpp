@@ -3,7 +3,7 @@
 
 #include "MappedData.h"
 #include "Texture.h"
-#include "VulkanUtils.h"
+#include "Utils.h"
 
 namespace Vulkan
 {

@@ -2,8 +2,7 @@
 #include <QVulkanFunctions>
 
 #include "ScopeCommandBuffer.h"
-#include "VulkanFactory.h"
-#include "VulkanUtils.h"
+#include "Utils.h"
 
 namespace Vulkan
 {

@@ -32,7 +32,6 @@ add_executable(QVulkanApp
     Camera.h
     RenderInterface.h
     RenderInterface.cpp
-    VulkanFactory.cpp
     textures/textures.qrc
     shaders/shaders.qrc
 
