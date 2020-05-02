@@ -1,3 +1,5 @@
+#include "source\renderer\private\DescriptorSet.h"
+#include "source\renderer\private\DescriptorSet.h"
 #include <QVulkanFunctions>
 #include <QFile>
 #include <QVector2D>
@@ -14,6 +16,7 @@
 #include "IRenderer.h"
 #include "source/renderer/private/Texture.h"
 #include "source/renderer/private/Buffer.h"
+#include "source/renderer/private/DescriptorSet.h"
 
 struct IvalidPath : public std::runtime_error
 {
@@ -222,113 +225,6 @@ public:
     }
 };
 
-class DescriptorSet
-    : public IFrameCallback
-{
-    VkDescriptorSetLayout m_descriptor_set_layout = nullptr;
-    VkDescriptorSet       m_descriptor_set  = nullptr;
-    VkDescriptorPool      m_descriptor_pool = nullptr;
-    VkPipelineLayout      m_pipeline_layout = nullptr;
-public:
-    DescriptorSet(const Vulkan::Texture& texture, const Vulkan::UniformBuffer& uniform_buffer, const QVulkanWindow& window)
-    {
-        auto device = window.device();
-        auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
-
-        std::vector<VkDescriptorPoolSize> pool_sizes;
-
-        VkDescriptorPoolSize pool_size{};
-        pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        pool_size.descriptorCount = 1;
-        pool_sizes.emplace_back(pool_size);
-
-        pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        pool_size.descriptorCount = 1;
-        pool_sizes.emplace_back(pool_size);
-
-        VkDescriptorPoolCreateInfo pool_info{};
-        pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        pool_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
-        pool_info.pPoolSizes    = pool_sizes.data();
-        pool_info.maxSets       = 2;
-
-        Vulkan::VkResultSuccess(device_functions.vkCreateDescriptorPool(device, &pool_info, nullptr, &m_descriptor_pool));
-
-        std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings;
-
-        VkDescriptorSetLayoutBinding binding_layout{};
-        binding_layout.descriptorCount = 1;
-
-        binding_layout.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        binding_layout.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-        binding_layout.binding = 0;
-        setLayoutBindings.emplace_back(binding_layout);
-
-        binding_layout.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        binding_layout.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-        binding_layout.binding = 1;
-        setLayoutBindings.emplace_back(binding_layout);
-
-        VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info{};
-        descriptor_set_layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        descriptor_set_layout_info.pBindings = setLayoutBindings.data();
-        descriptor_set_layout_info.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
-
-        Vulkan::VkResultSuccess(device_functions.vkCreateDescriptorSetLayout(device, &descriptor_set_layout_info, nullptr, &m_descriptor_set_layout));
-
-        VkPipelineLayoutCreateInfo pipeline_layout_info{};
-        pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipeline_layout_info.setLayoutCount = 1;
-        pipeline_layout_info.pSetLayouts = &m_descriptor_set_layout;
-
-        Vulkan::VkResultSuccess(device_functions.vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &m_pipeline_layout));
-
-        VkDescriptorSetAllocateInfo descriptor_set_info{};
-        descriptor_set_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        descriptor_set_info.descriptorPool     = m_descriptor_pool;
-        descriptor_set_info.pSetLayouts        = &m_descriptor_set_layout;
-        descriptor_set_info.descriptorSetCount = 1;
-
-        Vulkan::VkResultSuccess(device_functions.vkAllocateDescriptorSets(device, &descriptor_set_info, &m_descriptor_set));
-
-        auto texture_descriptor = texture.GetInfo();
-        auto buffer_descriptor  = uniform_buffer.GetInfo();
-
-        std::vector<VkWriteDescriptorSet> write_descriptor_sets;
-        VkWriteDescriptorSet write_descriptor_set{};
-        write_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write_descriptor_set.descriptorCount = 1;
-        write_descriptor_set.dstSet = m_descriptor_set;
-
-        write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        write_descriptor_set.dstBinding = 0;
-        write_descriptor_set.pBufferInfo = &buffer_descriptor;
-        write_descriptor_sets.emplace_back(write_descriptor_set);
-
-        write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        write_descriptor_set.dstBinding = 1;
-        write_descriptor_set.pImageInfo = &texture_descriptor;
-        write_descriptor_sets.emplace_back(write_descriptor_set);
-
-        device_functions.vkUpdateDescriptorSets(device, static_cast<uint32_t>(write_descriptor_sets.size()), write_descriptor_sets.data(), 0, nullptr);
-    }
-
-    void OnFrame(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) override
-    {
-        vulkan.vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &m_descriptor_set, 0, NULL);
-    }
-
-    VkPipelineLayout GetPipelineLayout() const
-    {
-        return m_pipeline_layout;
-    }
-
-    ~DescriptorSet()
-    {
-        // TODO
-    }
-};
-
 class Pipeline
     : public IFrameCallback
 {
@@ -355,7 +251,7 @@ class Pipeline
     }
 
 public:
-    Pipeline(const Vulkan::VertexBuffer& vertex, const DescriptorSet& descriptor_set, const QVulkanWindow& window)
+    Pipeline(const Vulkan::VertexBuffer& vertex, const Vulkan::DescriptorSet& descriptor_set, const QVulkanWindow& window)
     {
         VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info{};
         input_assembly_state_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -484,7 +380,7 @@ class VulkanRenderer
     std::unique_ptr<Vulkan::IndexBuffer> m_index_buffer;
     std::unique_ptr<Vulkan::VertexBuffer> m_vertex_buffer;
     std::unique_ptr<Vulkan::UniformBuffer> m_uniform;
-    std::unique_ptr<DescriptorSet> m_descriptor_set;
+    std::unique_ptr< Vulkan::DescriptorSet> m_descriptor_set;
     std::unique_ptr<Pipeline>      m_pipeline;
 
     UniformData uniform_data{};
@@ -524,7 +420,12 @@ public:
         m_vertex_buffer = std::make_unique<Vulkan::VertexBuffer>(VertexData{}, attribs, m_window);
         m_index_buffer = std::make_unique<Vulkan::IndexBuffer>(IndexData{}, m_window);
         m_uniform = std::make_unique<Vulkan::UniformBuffer>(uniform_data, m_window);
-        m_descriptor_set = std::make_unique<DescriptorSet>(*m_texture, *m_uniform, m_window);
+        Vulkan::InputResources bindings = {
+            *m_uniform,
+            *m_texture,
+        };
+
+        m_descriptor_set = std::make_unique<Vulkan::DescriptorSet>(bindings, m_window);
         m_pipeline = std::make_unique<Pipeline>(*m_vertex_buffer, *m_descriptor_set, m_window);
     }
 
@@ -639,7 +540,7 @@ public:
         scissor.offset.y = 0;
         device_functions.vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-        m_descriptor_set->OnFrame(device_functions, command_buffer);
+        m_descriptor_set->Bind(device_functions, command_buffer);
         m_pipeline->OnFrame(device_functions, command_buffer);
         m_index_buffer->Bind(device_functions, command_buffer);
         m_vertex_buffer->Bind(device_functions, command_buffer);
