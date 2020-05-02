@@ -1,4 +1,3 @@
-#include "Factory.h"
 #include "Texture.h"
 #include "VulkanUtils.h"
 

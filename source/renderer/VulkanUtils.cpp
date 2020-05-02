@@ -63,11 +63,6 @@ namespace Vulkan
         return view;
     }
 
-    uint32_t GetMemoryIndex(uint32_t type_bits, VkMemoryPropertyFlags memory_property, const VkPhysicalDeviceMemoryProperties& props)
-    {
-        return uint32_t();
-    }
-
     InvalidVulkanCall::InvalidVulkanCall()
         : std::logic_error("Invalid Vulkan Api usage")
     {

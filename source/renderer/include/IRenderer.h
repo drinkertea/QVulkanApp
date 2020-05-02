@@ -30,24 +30,32 @@ namespace Vulkan
 
     struct IBuffer
     {
+        virtual void Update(const IDataProvider&) = 0;
         virtual ~IBuffer() = default;
     };
 
-    struct IIndexBuffer : public IBuffer
+    struct IIndexBuffer
     {
         virtual ~IIndexBuffer() = default;
     };
 
-    struct IVertexBuffer : public IBuffer
+    enum class AttributeFormat
+    {
+        vec1f = 0,
+        vec2f,
+        vec3f,
+        vec4f,
+    };
+    using Attributes = std::vector<AttributeFormat>;
+
+    struct IVertexBuffer
     {
         virtual ~IVertexBuffer() = default;
     };
 
     struct IUniformBuffer
-        : public IBuffer
-        , public IInputResource
+        : public IInputResource
     {
-        virtual void Update(const IDataProvider&) = 0;
         virtual ~IUniformBuffer() = default;
     };
 
@@ -78,7 +86,7 @@ namespace Vulkan
     struct IFactory
     {
         virtual ITexture&       CreateTexture      (const IDataProvider&) = 0;
-        virtual IVertexBuffer&  CreateVertexBuffer (const IDataProvider&) = 0;
+        virtual IVertexBuffer&  CreateVertexBuffer (const IDataProvider&, const Attributes&) = 0;
         virtual IIndexBuffer&   CreateIndexBuffer  (const IDataProvider&) = 0;
         virtual IUniformBuffer& CreateUniformBuffer(const IDataProvider&) = 0;
         virtual IDescriptorSet& CreateDescriptorSet(const InputResources&) = 0;
