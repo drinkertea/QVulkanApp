@@ -32,12 +32,7 @@ add_executable(QVulkanApp
     Camera.h
     RenderInterface.h
     RenderInterface.cpp
-    VulkanFactory.h
     VulkanFactory.cpp
-    VulkanImage.h
-    VulkanImage.cpp
-    VulkanUtils.h
-    VulkanUtils.cpp
     ScopeCommandBuffer.h
     ScopeCommandBuffer.cpp
     MappedData.h
@@ -47,6 +42,11 @@ add_executable(QVulkanApp
 
     ${SHADERS}
 )
+
+add_subdirectory(source/renderer)
+
+target_link_libraries(QVulkanApp VulkanRenderer)
+target_include_directories(QVulkanApp PRIVATE source/renderer/include)
 
 target_compile_definitions(QVulkanApp PRIVATE VK_USE_PLATFORM_WIN32_KHR)
 target_include_directories(QVulkanApp PRIVATE Vulkan::Vulkan)
