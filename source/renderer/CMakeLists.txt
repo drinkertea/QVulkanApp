@@ -23,6 +23,8 @@ ADD_LIBRARY(VulkanRenderer STATIC
     private/MappedData.cpp
     private/Buffer.h
     private/Buffer.cpp
+    private/DescriptorSet.h
+    private/DescriptorSet.cpp
 )
 
 target_include_directories(VulkanRenderer PRIVATE include)
