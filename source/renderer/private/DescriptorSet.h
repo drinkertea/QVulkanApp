@@ -16,7 +16,7 @@ namespace Vulkan
         DescriptorSet(const InputResources&, const QVulkanWindow&);
         ~DescriptorSet() override;
 
-        void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf);
+        void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const;
 
         VkPipelineLayout GetPipelineLayout() const;
 

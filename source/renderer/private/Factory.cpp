@@ -8,6 +8,7 @@
 #include "Shader.h"
 #include "DescriptorSet.h"
 #include "Pipeline.h"
+#include "RenderPass.h"
 
 #include <deque>
 
@@ -27,7 +28,7 @@ public:
 
     std::unique_ptr<IRenderPass> CreateRenderPass() const override
     {
-        return nullptr;
+        return std::make_unique<RenderPass>(window);
     }
 
     ITexture& CreateTexture(const IDataProvider& data) override

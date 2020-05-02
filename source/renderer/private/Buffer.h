@@ -51,7 +51,9 @@ namespace Vulkan
         VertexBuffer(const IDataProvider&, const Attributes&, const QVulkanWindow&);
         ~VertexBuffer() override = default;
 
-        void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf);
+        void Update(const IDataProvider&) override;
+
+        void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const;
         const VertexLayout& GetLayout() const;
 
     private:
@@ -66,7 +68,14 @@ namespace Vulkan
         IndexBuffer(const IDataProvider&, const QVulkanWindow&);
         ~IndexBuffer() override = default;
 
-        void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf);
+        void Update(const IDataProvider&) override;
+
+        void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const;
+
+        uint32_t GetIndexCount() const;
+
+    private:
+        uint32_t index_count = 0;
     };
 
     class UniformBuffer
@@ -76,6 +85,8 @@ namespace Vulkan
     public:
         UniformBuffer(const IDataProvider&, const QVulkanWindow&);
         ~UniformBuffer() override = default;
+
+        void Update(const IDataProvider&) override;
 
         VkDescriptorBufferInfo GetInfo() const;
     };
