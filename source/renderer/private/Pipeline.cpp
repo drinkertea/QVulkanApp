@@ -28,10 +28,8 @@ Pipeline::Pipeline(const IDescriptorSet& descriptor_set, const Shaders& shaders,
     VkPipelineRasterizationStateCreateInfo rasterization_state_info{};
     rasterization_state_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterization_state_info.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterization_state_info.cullMode = VK_CULL_MODE_FRONT_BIT;
-    rasterization_state_info.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    rasterization_state_info.flags = 0;
-    rasterization_state_info.depthClampEnable = VK_FALSE;
+    rasterization_state_info.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterization_state_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterization_state_info.lineWidth = 1.0f;
 
     VkPipelineColorBlendAttachmentState color_blend_attachment{};
@@ -48,7 +46,7 @@ Pipeline::Pipeline(const IDescriptorSet& descriptor_set, const Shaders& shaders,
     depth_stencil_state_info.depthTestEnable = VK_TRUE;
     depth_stencil_state_info.depthWriteEnable = VK_TRUE;
     depth_stencil_state_info.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    depth_stencil_state_info.back.compareOp = VK_COMPARE_OP_ALWAYS;
+   // depth_stencil_state_info.back.compareOp = VK_COMPARE_OP_ALWAYS;
 
     VkPipelineViewportStateCreateInfo viewport_state_info{};
     viewport_state_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
