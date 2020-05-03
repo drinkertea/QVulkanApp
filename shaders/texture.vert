@@ -1,23 +1,31 @@
 #version 450
 
-layout (location = 0) in vec3 inPos;
-layout (location = 1) in vec2 inUV;
-layout (location = 2) in vec3 inNormal;
+#define FRONT  0
+#define BACK   1
+#define LEFT   2
+#define RIGHT  3
+#define TOP    4
+#define BOTTOM 5
 
-layout (location = 3) in vec3 instancePos;
-layout (location = 4) in int instanceTexIndex;
+#define TOP_LEFT  0
+#define BOT_LEFT  1
+#define BOT_RIGHT 2
+#define TOP_RIGHT 3
+
+layout (location = 0) in int cornerIndex;
+
+layout (location = 1) in vec3 instancePos;
+layout (location = 2) in int instanceTexIndex;
+layout (location = 3) in int faceIndex;
 
 layout (binding = 0) uniform UBO 
 {
-	mat4 projection;
-	mat4 model;
-	vec4 viewPos;
+    mat4 projection;
+    mat4 model;
+    vec4 viewPos;
 } ubo;
 
 layout (location = 0) out vec3 outUV;
-layout (location = 1) out vec3 outNormal;
-layout (location = 2) out vec3 outViewVec;
-layout (location = 3) out vec3 outLightVec;
 
 out gl_PerVertex 
 {
@@ -26,16 +34,62 @@ out gl_PerVertex
 
 void main() 
 {
-    outUV = vec3(inUV, instanceTexIndex);
+    switch (cornerIndex)
+    {
+        case TOP_LEFT : outUV = vec3(vec2(1,0), instanceTexIndex); break;
+        case BOT_LEFT : outUV = vec3(vec2(0,0), instanceTexIndex); break;
+        case BOT_RIGHT: outUV = vec3(vec2(0,1), instanceTexIndex); break;
+        case TOP_RIGHT: outUV = vec3(vec2(1,1), instanceTexIndex); break;
+    }
 
-    vec3 worldPos = vec3(ubo.model * vec4(inPos, 1.0));
+    vec3 pos;
+    switch (faceIndex)
+    {
+        case FRONT: switch (cornerIndex)
+        {
+            case TOP_LEFT : pos = vec3(1, 1, 1); break;
+            case BOT_LEFT : pos = vec3(0, 1, 1); break;
+            case BOT_RIGHT: pos = vec3(0, 0, 1); break;
+            case TOP_RIGHT: pos = vec3(1, 0, 1); break;
+        } break;
+        case BACK: switch (cornerIndex)
+        {
+            case TOP_LEFT : pos = vec3(0, 1, 0); break;
+            case BOT_LEFT : pos = vec3(1, 1, 0); break;
+            case BOT_RIGHT: pos = vec3(1, 0, 0); break;
+            case TOP_RIGHT: pos = vec3(0, 0, 0); break;
+        } break;
+        case LEFT: switch (cornerIndex)
+        {
+            case TOP_LEFT : pos = vec3(0, 1, 1); break;
+            case BOT_LEFT : pos = vec3(0, 1, 0); break;
+            case BOT_RIGHT: pos = vec3(0, 0, 0); break;
+            case TOP_RIGHT: pos = vec3(0, 0, 1); break;
+        } break;
+        case RIGHT: switch (cornerIndex)
+        {
+            case TOP_LEFT : pos = vec3(1, 1, 0); break;
+            case BOT_LEFT : pos = vec3(1, 1, 1); break;
+            case BOT_RIGHT: pos = vec3(1, 0, 1); break;
+            case TOP_RIGHT: pos = vec3(1, 0, 0); break;
+        } break;
+        case TOP: switch (cornerIndex)
+        {
+            case TOP_LEFT : pos = vec3(1, 1, 0); break;
+            case BOT_LEFT : pos = vec3(0, 1, 0); break;
+            case BOT_RIGHT: pos = vec3(0, 1, 1); break;
+            case TOP_RIGHT: pos = vec3(1, 1, 1); break;
+        } break;
+        case BOTTOM: switch (cornerIndex)
+        {
+            case TOP_LEFT : pos = vec3(1, 0, 1); break;
+            case BOT_LEFT : pos = vec3(0, 0, 1); break;
+            case BOT_RIGHT: pos = vec3(0, 0, 0); break;
+            case TOP_RIGHT: pos = vec3(1, 0, 0); break;
+        } break;
+    }
 
-    gl_Position = ubo.projection * ubo.model * vec4(inPos.xyz + instancePos, 1.0);
+    vec3 worldPos = vec3(ubo.model * vec4(pos, 1.0));
 
-    vec4 pos = ubo.model * vec4(inPos, 1.0);
-    outNormal = mat3(inverse(transpose(ubo.model))) * inNormal;
-    vec3 lightPos = vec3(0.0);
-    vec3 lPos = mat3(ubo.model) * lightPos.xyz;
-    outLightVec = lPos - pos.xyz;
-    outViewVec = ubo.viewPos.xyz - pos.xyz;		
+    gl_Position = ubo.projection * ubo.model * vec4(pos + instancePos, 1.0);
 }
