@@ -85,4 +85,15 @@ void ScopeCommandBuffer::CopyImage(VkImage src, VkImage dst, const VkImageCopy& 
     );
 }
 
+void ScopeCommandBuffer::CopyBuffer(VkBuffer src, VkBuffer dst, const VkBufferCopy& info) const
+{
+    m_window.vulkanInstance()->deviceFunctions(m_window.device())->vkCmdCopyBuffer(
+        command_buffer,
+        src,
+        dst,
+        1,
+        &info
+    );
+}
+
 }

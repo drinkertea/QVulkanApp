@@ -57,6 +57,8 @@ namespace Vulkan
         const VertexLayout& GetLayout() const;
 
     protected:
+        const QVulkanWindow& window;
+
         VertexLayout layout{};
     };
 

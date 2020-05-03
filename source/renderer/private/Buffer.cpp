@@ -1,6 +1,8 @@
 #include "Buffer.h"
 #include "Utils.h"
 
+#include "ScopeCommandBuffer.h"
+
 #include <QVulkanFunctions>
 #include <QVulkanWindow>
 
@@ -19,7 +21,7 @@ namespace Vulkan
 
     VkDeviceMemory Allocate(uint32_t index, VkDeviceSize size, const QVulkanWindow& window);
 
-    Buffer CreateBuffer(VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_property, VkDeviceSize size, const void* data, const QVulkanWindow& window)
+    Buffer CreateBuffer(VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_property, VkDeviceSize size, const QVulkanWindow& window)
     {
         auto device = window.device();
         auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
@@ -140,20 +142,33 @@ namespace Vulkan
 
     VertexBuffer::VertexBuffer(const IDataProvider& data, const Attributes& attributes, const QVulkanWindow& window)
         : BufferBase(CreateBuffer(
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             data.GetSize(),
-            data.GetData(),
             window
         ), window)
+        , window(window)
         , layout(CreateLayout(vertex_binding_index, attributes))
     {
-        BufferBase::Update(data);
+        VertexBuffer::Update(data);
     }
 
     void VertexBuffer::Update(const IDataProvider& data)
     {
-        BufferBase::Update(data);
+        auto upload = CreateBuffer(
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            data.GetSize(),
+            window
+        );
+
+        BufferBase bb(upload, window);
+        bb.Update(data);
+
+        ScopeCommandBuffer scb(window);
+        VkBufferCopy info = {};
+        info.size = data.GetSize();
+        scb.CopyBuffer(upload.buffer, buffer.buffer, info);
     }
 
     void VertexBuffer::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const
@@ -183,7 +198,6 @@ namespace Vulkan
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             data.GetSize(),
-            data.GetData(),
             window
         ), window)
         , index_count(data.GetWidth())
@@ -211,7 +225,6 @@ namespace Vulkan
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             data.GetSize(),
-            data.GetData(),
             window
         ), window)
     {
@@ -242,7 +255,7 @@ namespace Vulkan
 
     void InstanceBuffer::Update(const IDataProvider& data)
     {
-        BufferBase::Update(data);
+        VertexBuffer::Update(data);
     }
 
     void InstanceBuffer::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const
