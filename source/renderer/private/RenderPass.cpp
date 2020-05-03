@@ -43,8 +43,8 @@ RenderPass::RenderPass(const QVulkanWindow& wnd)
     VkViewport viewport{};
     viewport.width = size.width();
     viewport.height = size.height();
-    viewport.minDepth = 0;
-    viewport.maxDepth = 0;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
     device_functions.vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
     VkRect2D scissor{};
