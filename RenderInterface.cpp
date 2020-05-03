@@ -84,45 +84,20 @@ public:
 class VertexData
     : public Vulkan::IDataProvider
 {
-    struct Vertex {
-        float pos[3];
-        float uv[2];
-        float normal[3];
+    enum class Corner : uint32_t
+    {
+        TopLeft = 0,
+        BotLeft,
+        BotRight,
+        TopRight,
     };
 
-    std::vector<Vertex> vertices =
+    std::vector<Corner> vertices =
     {
-        // front
-        { { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 1.0f, 1.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        //back
-        { { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        //left
-        { { 0.0f, 1.0f, 1.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        //right
-        { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        //top
-        { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        //bot
-        { { 1.0f, 0.0f, 1.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-
+        Corner::TopLeft,
+        Corner::BotLeft,
+        Corner::BotRight,
+        Corner::TopRight,
     };
 
 public:
@@ -145,7 +120,7 @@ public:
 
     uint32_t GetSize() const override
     {
-        return GetWidth() * sizeof(Vertex);
+        return GetWidth() * sizeof(Corner);
     }
 
     uint32_t GetDepth() const override
@@ -157,48 +132,57 @@ public:
 class InstanceData
     : public Vulkan::IDataProvider
 {
+    enum class Face
+    {
+        front = 0,
+        back,
+        left,
+        right,
+        top,
+        bottom,
+    };
+
     struct Instance {
         float pos[3];
         int texture;
+        int face;
     };
 
     std::vector<Instance> instances =
     {
-        { { 0.0f, 0.0f, 0.0f } , 0 },
-        { { 1.0f, 0.0f, 0.0f } , 1 },
-        { { 2.0f, 0.0f, 0.0f } , 2 },
-        { { 3.0f, 0.0f, 0.0f } , 3 },
-        { { 4.0f, 0.0f, 0.0f } , 4 },
-        { { 5.0f, 0.0f, 0.0f } , 5 },
-        { { 6.0f, 0.0f, 0.0f } , 6 },
-        { { 7.0f, 0.0f, 0.0f } , 7 },
-        { { 0.0f, 1.0f, 0.0f } , 0 },
-        { { 1.0f, 1.0f, 0.0f } , 1 },
-        { { 2.0f, 1.0f, 0.0f } , 2 },
-        { { 3.0f, 1.0f, 0.0f } , 3 },
-        { { 4.0f, 1.0f, 0.0f } , 4 },
-        { { 5.0f, 1.0f, 0.0f } , 5 },
-        { { 6.0f, 1.0f, 0.0f } , 6 },
-        { { 7.0f, 1.0f, 0.0f } , 7 },
-        { { 0.0f, 2.0f, 0.0f } , 0 },
-        { { 1.0f, 2.0f, 0.0f } , 1 },
-        { { 2.0f, 2.0f, 0.0f } , 2 },
-        { { 3.0f, 2.0f, 0.0f } , 3 },
-        { { 4.0f, 2.0f, 0.0f } , 4 },
-        { { 5.0f, 2.0f, 0.0f } , 5 },
-        { { 6.0f, 2.0f, 0.0f } , 6 },
-        { { 7.0f, 2.0f, 0.0f } , 7 },
-        { { 0.0f, 3.0f, 0.0f } , 0 },
-        { { 1.0f, 3.0f, 0.0f } , 1 },
-        { { 2.0f, 3.0f, 0.0f } , 2 },
-        { { 3.0f, 3.0f, 0.0f } , 3 },
-        { { 4.0f, 3.0f, 0.0f } , 4 },
-        { { 5.0f, 3.0f, 0.0f } , 5 },
-        { { 6.0f, 3.0f, 0.0f } , 6 },
-        { { 7.0f, 3.0f, 0.0f } , 7 },
+        { { 0.0f, 0.0f, 0.0f } , 0, 0 },
+        { { 0.0f, 0.0f, 0.0f } , 0, 1 },
+        { { 0.0f, 0.0f, 0.0f } , 0, 2 },
+        { { 0.0f, 0.0f, 0.0f } , 0, 3 },
+        { { 0.0f, 0.0f, 0.0f } , 0, 4 },
+        { { 0.0f, 0.0f, 0.0f } , 0, 5 },
     };
 
 public:
+    InstanceData()
+    {
+        auto t = instances;
+        instances.clear();
+        int k = 0;
+        while (k < 8)
+        {
+            auto tt = t;
+            for (auto& x : tt)
+            {
+                x.texture = k;
+                x.pos[0] = k;
+            }
+            k++;
+            int y = -50;
+            while (y++ < 50)
+            {
+                for (auto& x : tt)
+                    x.pos[1] = y;
+                instances.insert(instances.end(), tt.begin(), tt.end());
+            }
+        }
+    }
+
     ~InstanceData() override = default;
 
     uint32_t GetWidth() const override
@@ -232,11 +216,11 @@ class IndexData
 {
     std::vector<uint32_t> indices = {
         0,1,2, 2,3,0, // front
-        0 + 4,1 + 4,2 + 4, 2 + 4,3 + 4,0 + 4, // back
-        0 + 8,1 + 8,2 + 8, 2 + 8,3 + 8,0 + 8, // left
-        0 + 12,1 + 12,2 + 12, 2 + 12,3 + 12,0 + 12, // back
-        0 + 16,1 + 16,2 + 16, 2 + 16,3 + 16,0 + 16, // top
-        0 + 20,1 + 20,2 + 20, 2 + 20,3 + 20,0 + 20, // bot
+        //0 + 4,1 + 4,2 + 4, 2 + 4,3 + 4,0 + 4, // back
+        //0 + 8,1 + 8,2 + 8, 2 + 8,3 + 8,0 + 8, // left
+        //0 + 12,1 + 12,2 + 12, 2 + 12,3 + 12,0 + 12, // back
+        //0 + 16,1 + 16,2 + 16, 2 + 16,3 + 16,0 + 16, // top
+        //0 + 20,1 + 20,2 + 20, 2 + 20,3 + 20,0 + 20, // bot
     };
 
 public:
@@ -420,9 +404,7 @@ public:
         }));
 
         Vulkan::Attributes attribs;
-        attribs.push_back(Vulkan::AttributeFormat::vec3f);
-        attribs.push_back(Vulkan::AttributeFormat::vec2f);
-        attribs.push_back(Vulkan::AttributeFormat::vec3f);
+        attribs.push_back(Vulkan::AttributeFormat::vec1i);
 
         uniform_data.Update(camera);
 
@@ -431,6 +413,7 @@ public:
 
         Vulkan::Attributes insta;
         insta.push_back(Vulkan::AttributeFormat::vec3f);
+        insta.push_back(Vulkan::AttributeFormat::vec1i);
         insta.push_back(Vulkan::AttributeFormat::vec1i);
         instance_buffer = &factory->CreateInstanceBuffer(InstanceData{}, insta);
 
