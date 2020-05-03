@@ -391,7 +391,7 @@ public:
         camera.type = Camera::CameraType::firstperson;
         camera.setPosition(QVector3D(0.0f, 80.0f, -2.5f));
         camera.setRotation(QVector3D(0.0f, 15.0f, 0.0f));
-        camera.setPerspective(60.0f, (float)window.width() / (float)window.height(), 0.1f, 256.0f);
+        camera.setPerspective(60.0f, (float)window.width() / (float)window.height(), 0.1f, 1024.0f);
         camera.movementSpeed *= 10;
     }
 
@@ -529,8 +529,9 @@ public:
             auto render_pass = factory->CreateRenderPass();
             render_pass->Bind(*descriptor_set);
             render_pass->Bind(*pipeline);
+            render_pass->Bind(*index_buffer, *vertex_buffer);
             for (const auto& chunk : chunks)
-                render_pass->Draw(*index_buffer, *vertex_buffer, chunk.GetData());
+                render_pass->Draw(chunk.GetData());
         }
         m_window.frameReady();
         m_window.requestUpdate();

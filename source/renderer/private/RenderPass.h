@@ -17,11 +17,14 @@ public:
 
     void Bind(const IDescriptorSet&) const override;
     void Bind(const IPipeline&) const override;
+    void Bind(const IIndexBuffer&, const IVertexBuffer&) const override;
     void Draw(const IIndexBuffer&, const IVertexBuffer&) const override;
-    void Draw(const IIndexBuffer&, const IVertexBuffer&, const IInstanceBuffer&) const override;
+    void Draw(const IInstanceBuffer&) const override;
 
 private:
     const QVulkanWindow& window;
+
+    mutable uint32_t current_index_count = 0;
 };
 
 }
