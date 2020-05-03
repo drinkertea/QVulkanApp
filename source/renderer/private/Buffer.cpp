@@ -61,6 +61,7 @@ namespace Vulkan
             case AttributeFormat::vec2f: return VK_FORMAT_R32G32_SFLOAT;
             case AttributeFormat::vec3f: return VK_FORMAT_R32G32B32_SFLOAT;
             case AttributeFormat::vec4f: return VK_FORMAT_R32G32B32A32_SFLOAT;
+            case AttributeFormat::vec1i: return VK_FORMAT_R32_SINT;
             default: throw std::logic_error("Wrong enum value");
         }
     }
@@ -73,11 +74,13 @@ namespace Vulkan
         case AttributeFormat::vec2f: return sizeof(float) * 2;
         case AttributeFormat::vec3f: return sizeof(float) * 3;
         case AttributeFormat::vec4f: return sizeof(float) * 4;
+        case AttributeFormat::vec1i: return sizeof(int32_t) * 1;
         default: throw std::logic_error("Wrong enum value");
         }
     }
 
-    static constexpr uint32_t binding_index = 0;
+    static constexpr uint32_t vertex_binding_index = 0;
+    static constexpr uint32_t instance_binding_index = 1;
 
     BufferBase::BufferBase(const Buffer& buf, const QVulkanWindow& window)
         : device(window.device())
@@ -111,19 +114,11 @@ namespace Vulkan
         functions.vkUnmapMemory(device, buffer.memory);
     }
 
-    VertexBuffer::VertexBuffer(const IDataProvider& data, const Attributes& attributes, const QVulkanWindow& window)
-        : BufferBase(CreateBuffer(
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            data.GetSize(),
-            data.GetData(),
-            window
-        ), window)
+    VertexLayout CreateLayout(uint32_t binding, const Attributes& attributes)
     {
-        BufferBase::Update(data);
-
+        VertexLayout layout{};
         VkVertexInputAttributeDescription attribute_desc{};
-        attribute_desc.binding = binding_index;
+        attribute_desc.binding = binding;
 
         uint32_t size = 0;
         for (uint32_t i = 0; i < attributes.size(); ++i)
@@ -136,10 +131,24 @@ namespace Vulkan
         }
 
         VkVertexInputBindingDescription binding_desc{};
-        binding_desc.binding = binding_index;
+        binding_desc.binding = binding;
         binding_desc.stride = size;
         binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
         layout.bindings.emplace_back(binding_desc);
+        return layout;
+    }
+
+    VertexBuffer::VertexBuffer(const IDataProvider& data, const Attributes& attributes, const QVulkanWindow& window)
+        : BufferBase(CreateBuffer(
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            data.GetSize(),
+            data.GetData(),
+            window
+        ), window)
+        , layout(CreateLayout(vertex_binding_index, attributes))
+    {
+        BufferBase::Update(data);
     }
 
     void VertexBuffer::Update(const IDataProvider& data)
@@ -150,7 +159,7 @@ namespace Vulkan
     void VertexBuffer::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const
     {
         VkDeviceSize offsets[1] = { 0 };
-        vulkan.vkCmdBindVertexBuffers(cmd_buf, binding_index, 1, &buffer.buffer, offsets);
+        vulkan.vkCmdBindVertexBuffers(cmd_buf, vertex_binding_index, 1, &buffer.buffer, offsets);
     }
 
     const VertexLayout& VertexBuffer::GetLayout() const
@@ -221,5 +230,28 @@ namespace Vulkan
         info.offset = 0;
         info.range  = VK_WHOLE_SIZE;
         return info;
+    }
+
+    InstanceBuffer::InstanceBuffer(const IDataProvider& data, const Attributes& attributes, const QVulkanWindow& window)
+        : VertexBuffer(data, attributes, window)
+        , instance_count(data.GetWidth())
+    {
+        layout = CreateLayout(instance_binding_index, attributes);
+        layout.bindings.front().inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+    }
+
+    void InstanceBuffer::Update(const IDataProvider& data)
+    {
+        BufferBase::Update(data);
+    }
+
+    void InstanceBuffer::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const
+    {
+        VkDeviceSize offsets[1] = { 0 };
+        vulkan.vkCmdBindVertexBuffers(cmd_buf, instance_binding_index, 1, &buffer.buffer, offsets);
+    }
+    uint32_t InstanceBuffer::GetInstanceCount() const
+    {
+        return instance_count;
     }
 }

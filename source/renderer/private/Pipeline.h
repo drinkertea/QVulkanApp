@@ -14,7 +14,8 @@ class Pipeline
     : public IPipeline
 {
 public:
-    Pipeline(const IDescriptorSet&, const Shaders&, const IVertexBuffer&, const QVulkanWindow& window);
+    Pipeline(const IDescriptorSet&, const Shaders&, const IVertexBuffer&, const QVulkanWindow& window, const IInstanceBuffer* instance = nullptr);
+    Pipeline(const IDescriptorSet&, const Shaders&, const IVertexBuffer&, const IInstanceBuffer& instance, const QVulkanWindow& window);
     ~Pipeline() override;
 
     void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const;

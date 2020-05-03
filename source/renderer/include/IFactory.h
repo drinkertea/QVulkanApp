@@ -21,6 +21,7 @@ enum class AttributeFormat
     vec2f,
     vec3f,
     vec4f,
+    vec1i,
 };
 
 using Attributes = std::vector<AttributeFormat>;
@@ -33,11 +34,13 @@ struct IFactory
 
     virtual ITexture& CreateTexture(const IDataProvider&) = 0;
     virtual IVertexBuffer& CreateVertexBuffer(const IDataProvider&, const Attributes&) = 0;
+    virtual IInstanceBuffer& CreateInstanceBuffer(const IDataProvider&, const Attributes&) = 0;
     virtual IIndexBuffer& CreateIndexBuffer(const IDataProvider&) = 0;
     virtual IUniformBuffer& CreateUniformBuffer(const IDataProvider&) = 0;
     virtual IShader& CreateShader(const IDataProvider&, ShaderType) = 0;
     virtual IDescriptorSet& CreateDescriptorSet(const InputResources&) = 0;
     virtual IPipeline& CreatePipeline(const IDescriptorSet&, const Shaders&, const IVertexBuffer&) = 0;
+    virtual IPipeline& CreatePipeline(const IDescriptorSet&, const Shaders&, const IVertexBuffer&, const IInstanceBuffer&) = 0;
     virtual ~IFactory() = default;
 };
 

@@ -4,6 +4,9 @@ layout (location = 0) in vec3 inPos;
 layout (location = 1) in vec2 inUV;
 layout (location = 2) in vec3 inNormal;
 
+layout (location = 3) in vec3 instancePos;
+layout (location = 4) in int instanceTexIndex;
+
 layout (binding = 0) uniform UBO 
 {
 	mat4 projection;
@@ -23,11 +26,11 @@ out gl_PerVertex
 
 void main() 
 {
-    outUV = vec3(inUV, 5);
+    outUV = vec3(inUV, instanceTexIndex);
 
     vec3 worldPos = vec3(ubo.model * vec4(inPos, 1.0));
 
-    gl_Position = ubo.projection * ubo.model * vec4(inPos.xyz, 1.0);
+    gl_Position = ubo.projection * ubo.model * vec4(inPos.xyz + instancePos, 1.0);
 
     vec4 pos = ubo.model * vec4(inPos, 1.0);
     outNormal = mat3(inverse(transpose(ubo.model))) * inNormal;

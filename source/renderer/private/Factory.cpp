@@ -43,6 +43,12 @@ public:
         return vertex_buffers.back();
     }
 
+    IInstanceBuffer& CreateInstanceBuffer(const IDataProvider& data, const Attributes& attribs) override
+    {
+        instance_buffers.emplace_back(data, attribs, window);
+        return instance_buffers.back();
+    }
+
     IIndexBuffer& CreateIndexBuffer(const IDataProvider& data) override
     {
         index_buffers.emplace_back(data, window);
@@ -73,14 +79,21 @@ public:
         return pipelines.back();
     }
 
+    IPipeline& CreatePipeline(const IDescriptorSet& desc_set, const Shaders& shaders, const IVertexBuffer& vertex, const IInstanceBuffer& instance) override
+    {
+        pipelines.emplace_back(desc_set, shaders, vertex, instance, window);
+        return pipelines.back();
+    }
+
 private:
-    std::deque<Texture>       textures;
-    std::deque<VertexBuffer>  vertex_buffers;
-    std::deque<IndexBuffer>   index_buffers;
-    std::deque<UniformBuffer> uniform_buffers;
-    std::deque<Shader>        shaders;
-    std::deque<DescriptorSet> desc_sets;
-    std::deque<Pipeline>      pipelines;
+    std::deque<Texture>        textures;
+    std::deque<VertexBuffer>   vertex_buffers;
+    std::deque<InstanceBuffer> instance_buffers;
+    std::deque<IndexBuffer>    index_buffers;
+    std::deque<UniformBuffer>  uniform_buffers;
+    std::deque<Shader>         shaders;
+    std::deque<DescriptorSet>  desc_sets;
+    std::deque<Pipeline>       pipelines;
 
     const QVulkanWindow& window;
 };
