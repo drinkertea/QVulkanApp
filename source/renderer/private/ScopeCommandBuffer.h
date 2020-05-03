@@ -20,6 +20,7 @@ public:
         const VkImageMemoryBarrier& barrier
     ) const;
     void CopyImage(VkImage src, VkImage dst, const VkImageCopy& info) const;
+    void CopyBuffer(VkBuffer src, VkBuffer dst, const VkBufferCopy& info) const;
 
 private:
     const QVulkanWindow& m_window;

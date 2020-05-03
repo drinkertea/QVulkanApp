@@ -100,7 +100,8 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
             }
         }
     }
-    cubes.emplace_back(CreateFace(0, 0, 0, CubeFace::front));
+    if (cubes.empty())
+        cubes.emplace_back(CreateFace(0, 0, 0, CubeFace::front));
 
     Vulkan::Attributes inst_attribs;
     inst_attribs.push_back(Vulkan::AttributeFormat::vec3f);

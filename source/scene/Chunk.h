@@ -35,7 +35,7 @@ struct CubeInstance
 
 class Chunk
 {
-    static constexpr int32_t size = 64;
+    static constexpr int32_t size = 32;
 
 public:
     Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser);
