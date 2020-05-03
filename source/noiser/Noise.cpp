@@ -13,9 +13,9 @@ public:
 
     ~Noise() override = default;
 
-    uint32_t GetHeight(uint32_t x, uint32_t y) const override
+    int32_t GetHeight(int32_t x, int32_t y) const override
     {
-        return static_cast<uint32_t>(64.f * (1.f + generator.GetPerlin(
+        return static_cast<int32_t>(64.f * (1.f + generator.GetPerlin(
             static_cast<float>(x),
             static_cast<float>(y)
         )));
