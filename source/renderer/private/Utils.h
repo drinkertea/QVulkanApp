@@ -14,5 +14,5 @@ namespace Vulkan
 
     VkImageCreateInfo     GetImageCreateInfo(VkFormat format, uint32_t width, uint32_t height);
     VkSamplerCreateInfo   GetSamplerCreateInfo();
-    VkImageViewCreateInfo GetImageViewCreateInfo(VkImage image, VkFormat format);
+    VkImageViewCreateInfo GetImageViewCreateInfo(VkImage image, VkImageViewType type, VkFormat format);
 }

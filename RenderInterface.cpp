@@ -22,25 +22,34 @@ class TextureSource
     std::vector<uint8_t> data;
     uint32_t width = 0;
     uint32_t height = 0;
+    uint32_t depth = 1;
 
 public:
-    TextureSource(const QString& url)
+
+    TextureSource(const std::vector<QString>& urls)
     {
-        QImage image(url);
-        if (image.isNull())
-            throw IvalidPath(url.toStdString());
-
-        image = image.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
-
-        width = image.width();
-        height = image.height();
-        data.resize(height * width * 4);
-        auto mapped_data = data.data();
-        for (uint32_t y = 0; y < height; ++y)
+        size_t i = 0;
+        for (const auto& url : urls)
         {
-            auto row_pitch = width * 4; // todo: provide format or row pith
-            memcpy(mapped_data, image.constScanLine(y), row_pitch);
-            mapped_data += row_pitch;
+            QImage image(url);
+            if (image.isNull())
+                throw IvalidPath(url.toStdString());
+
+            image = image.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
+
+            width = image.width();
+            height = image.height();
+            depth = static_cast<uint32_t>(urls.size());
+            data.resize(height * width * 4 * depth);
+            auto mapped_data = &data[height * width * 4 * i];
+
+            for (uint32_t y = 0; y < height; ++y)
+            {
+                auto row_pitch = width * 4; // todo: provide format or row pith
+                memcpy(mapped_data, image.constScanLine(y), row_pitch);
+                mapped_data += row_pitch;
+            }
+            ++i;
         }
     }
 
@@ -68,7 +77,7 @@ public:
 
     uint32_t GetDepth() const override
     {
-        return 1;
+        return depth;
     }
 };
 
@@ -89,30 +98,30 @@ class VertexData
         { { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
         { { 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
         //back
-        { { 0.0f, 1.0f, 0.0f },  { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 1.0f, 0.0f },  { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 0.0f, 0.0f },  { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 0.0f, 0.0f },  { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
         //left
-        { { 0.0f, 1.0f, 1.0f },{ 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 0.0f, 0.0f },{ 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 0.0f, 1.0f },{ 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 0.0f, 1.0f, 1.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
         //right
-        { { 1.0f, 1.0f, 0.0f },{ 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 0.0f, 1.0f },{ 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 0.0f, 0.0f },{ 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
         //top
         { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
         { { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
         { { 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
         { { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
         //bot
-        { { 1.0f, 0.0f, 1.0f },{ 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 0.0f, 0.0f, 0.0f },{ 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
-        { { 1.0f, 0.0f, 0.0f },{ 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 1.0f, 0.0f, 1.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+        { { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
 
     };
 
@@ -325,7 +334,16 @@ public:
     {
         factory = CreateFactory(m_window);
 
-        auto& dirt_texture = factory->CreateTexture(TextureSource(":/dirt.png"));
+        auto& dirt_texture = factory->CreateTexture(TextureSource({
+            ":/dirt.png",
+            ":/bricks.png",
+            ":/cobblestone.png",
+            ":/ice.png",
+            ":/stone.png",
+            ":/sand.png",
+            ":/snow.png",
+            ":/oak_planks.png",
+        }));
 
         Vulkan::Attributes attribs;
         attribs.push_back(Vulkan::AttributeFormat::vec3f);

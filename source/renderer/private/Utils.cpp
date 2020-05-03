@@ -46,11 +46,11 @@ namespace Vulkan
         return sampler;
     }
 
-    VkImageViewCreateInfo GetImageViewCreateInfo(VkImage image, VkFormat format)
+    VkImageViewCreateInfo GetImageViewCreateInfo(VkImage image, VkImageViewType type, VkFormat format)
     {
         VkImageViewCreateInfo view{};
         view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        view.viewType = type;
         view.format = format;
         view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         view.subresourceRange.baseMipLevel = 0;
