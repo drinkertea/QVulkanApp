@@ -8,6 +8,10 @@
 #include "IRenderer.h"
 #include "IFactory.h"
 
+#include "Noise.h"
+
+#include <iostream>
+
 struct IvalidPath : public std::runtime_error
 {
     IvalidPath(const std::string& msg)

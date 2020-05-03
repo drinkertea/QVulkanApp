@@ -39,9 +39,12 @@ add_executable(QVulkanApp
 )
 
 add_subdirectory(source/renderer)
+add_subdirectory(source/noiser)
 
 target_link_libraries(QVulkanApp VulkanRenderer)
+target_link_libraries(QVulkanApp NoiseGenerator)
 target_include_directories(QVulkanApp PRIVATE source/renderer/include)
+target_include_directories(QVulkanApp PRIVATE source/noiser)
 
 target_compile_definitions(QVulkanApp PRIVATE VK_USE_PLATFORM_WIN32_KHR)
 target_include_directories(QVulkanApp PRIVATE Vulkan::Vulkan)
