@@ -1,5 +1,15 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
     <file>dirt.png</file>
+    <file>bricks.png</file>
+    <file>cobblestone.png</file>
+    <file>ice.png</file>
+    <file>stone.png</file>
+    <file>sand.png</file>
+    <file>snow.png</file>
+    <file>oak_planks.png</file>
+    <file>leaves_oak_opaque.png</file>
+    <file>oak_log.png</file>
+    <file>oak_log_top.png</file>
 </qresource>
 </RCC>

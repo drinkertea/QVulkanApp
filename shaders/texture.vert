@@ -11,7 +11,7 @@ layout (binding = 0) uniform UBO
 	vec4 viewPos;
 } ubo;
 
-layout (location = 0) out vec2 outUV;
+layout (location = 0) out vec3 outUV;
 layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec3 outViewVec;
 layout (location = 3) out vec3 outLightVec;
@@ -23,7 +23,7 @@ out gl_PerVertex
 
 void main() 
 {
-    outUV = inUV;
+    outUV = vec3(inUV, 5);
 
     vec3 worldPos = vec3(ubo.model * vec4(inPos, 1.0));
 
