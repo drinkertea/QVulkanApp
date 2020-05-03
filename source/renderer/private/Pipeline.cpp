@@ -10,7 +10,12 @@
 namespace Vulkan
 {
 
-Pipeline::Pipeline(const IDescriptorSet& descriptor_set, const Shaders& shaders, const IVertexBuffer& vertex, const QVulkanWindow& window)
+Pipeline::Pipeline(const IDescriptorSet& descriptor_set, const Shaders& shaders, const IVertexBuffer& vertex, const IInstanceBuffer& instance, const QVulkanWindow& window)
+    : Pipeline(descriptor_set, shaders, vertex, window, &instance)
+{
+}
+
+Pipeline::Pipeline(const IDescriptorSet& descriptor_set, const Shaders& shaders, const IVertexBuffer& vertex, const QVulkanWindow& window, const IInstanceBuffer* instance)
     : device(window.device())
     , functions(*window.vulkanInstance()->deviceFunctions(window.device()))
 {
@@ -98,7 +103,23 @@ Pipeline::Pipeline(const IDescriptorSet& descriptor_set, const Shaders& shaders,
     if (!vertex_buffer)
         throw std::logic_error("Unknown vertex derived class");
 
-    auto vertex_info = vertex_buffer->GetLayout().GetDesc();
+    VertexLayout res_layout = vertex_buffer->GetLayout();
+
+    if (instance)
+    {
+        auto instance_buffer = dynamic_cast<const InstanceBuffer*>(instance);
+        if (!instance_buffer)
+            throw std::logic_error("Unknown vertex derived class");
+
+        const auto& layout = instance_buffer->GetLayout();
+        res_layout.attributes.insert(res_layout.attributes.end(), layout.attributes.begin(), layout.attributes.end());
+        res_layout.bindings.insert(res_layout.bindings.end(), layout.bindings.begin(), layout.bindings.end());
+    }
+
+    for (uint32_t i = 0; i < res_layout.attributes.size(); ++i)
+        res_layout.attributes[i].location = i;
+
+    auto vertex_info = res_layout.GetDesc();
     pipeline_info.pVertexInputState    = &vertex_info;
     pipeline_info.pInputAssemblyState  = &input_assembly_state_info;
     pipeline_info.pRasterizationState  = &rasterization_state_info;

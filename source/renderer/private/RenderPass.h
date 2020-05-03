@@ -18,6 +18,7 @@ public:
     void Bind(const IDescriptorSet&) const override;
     void Bind(const IPipeline&) const override;
     void Draw(const IIndexBuffer&, const IVertexBuffer&) const override;
+    void Draw(const IIndexBuffer&, const IVertexBuffer&, const IInstanceBuffer&) const override;
 
 private:
     const QVulkanWindow& window;

@@ -41,6 +41,11 @@ struct IVertexBuffer : public IBuffer
     virtual ~IVertexBuffer() = default;
 };
 
+struct IInstanceBuffer : public IBuffer
+{
+    virtual ~IInstanceBuffer() = default;
+};
+
 struct IUniformBuffer
     : public IInputResource
     , public IBuffer
@@ -68,6 +73,7 @@ struct IRenderPass
     virtual void Bind(const IDescriptorSet&) const = 0;
     virtual void Bind(const IPipeline&) const = 0;
     virtual void Draw(const IIndexBuffer&, const IVertexBuffer&) const = 0;
+    virtual void Draw(const IIndexBuffer&, const IVertexBuffer&, const IInstanceBuffer&) const = 0;
     virtual ~IRenderPass() = default;
 };
 

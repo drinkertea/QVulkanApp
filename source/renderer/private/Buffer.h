@@ -53,10 +53,10 @@ namespace Vulkan
 
         void Update(const IDataProvider&) override;
 
-        void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const;
+        virtual void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const;
         const VertexLayout& GetLayout() const;
 
-    private:
+    protected:
         VertexLayout layout{};
     };
 
@@ -89,6 +89,24 @@ namespace Vulkan
         void Update(const IDataProvider&) override;
 
         VkDescriptorBufferInfo GetInfo() const;
+    };
+
+    class InstanceBuffer
+        : public VertexBuffer
+        , public IInstanceBuffer
+    {
+    public:
+        InstanceBuffer(const IDataProvider&, const Attributes&, const QVulkanWindow&);
+        ~InstanceBuffer() override = default;
+
+        void Update(const IDataProvider&) override;
+
+        void Bind(QVulkanDeviceFunctions & vulkan, VkCommandBuffer cmd_buf) const;
+
+        uint32_t GetInstanceCount() const;
+
+    private:
+        uint32_t instance_count = 0;
     };
 
 }

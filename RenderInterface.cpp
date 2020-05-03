@@ -154,6 +154,79 @@ public:
     }
 };
 
+class InstanceData
+    : public Vulkan::IDataProvider
+{
+    struct Instance {
+        float pos[3];
+        int texture;
+    };
+
+    std::vector<Instance> instances =
+    {
+        { { 0.0f, 0.0f, 0.0f } , 0 },
+        { { 1.0f, 0.0f, 0.0f } , 1 },
+        { { 2.0f, 0.0f, 0.0f } , 2 },
+        { { 3.0f, 0.0f, 0.0f } , 3 },
+        { { 4.0f, 0.0f, 0.0f } , 4 },
+        { { 5.0f, 0.0f, 0.0f } , 5 },
+        { { 6.0f, 0.0f, 0.0f } , 6 },
+        { { 7.0f, 0.0f, 0.0f } , 7 },
+        { { 0.0f, 1.0f, 0.0f } , 0 },
+        { { 1.0f, 1.0f, 0.0f } , 1 },
+        { { 2.0f, 1.0f, 0.0f } , 2 },
+        { { 3.0f, 1.0f, 0.0f } , 3 },
+        { { 4.0f, 1.0f, 0.0f } , 4 },
+        { { 5.0f, 1.0f, 0.0f } , 5 },
+        { { 6.0f, 1.0f, 0.0f } , 6 },
+        { { 7.0f, 1.0f, 0.0f } , 7 },
+        { { 0.0f, 2.0f, 0.0f } , 0 },
+        { { 1.0f, 2.0f, 0.0f } , 1 },
+        { { 2.0f, 2.0f, 0.0f } , 2 },
+        { { 3.0f, 2.0f, 0.0f } , 3 },
+        { { 4.0f, 2.0f, 0.0f } , 4 },
+        { { 5.0f, 2.0f, 0.0f } , 5 },
+        { { 6.0f, 2.0f, 0.0f } , 6 },
+        { { 7.0f, 2.0f, 0.0f } , 7 },
+        { { 0.0f, 3.0f, 0.0f } , 0 },
+        { { 1.0f, 3.0f, 0.0f } , 1 },
+        { { 2.0f, 3.0f, 0.0f } , 2 },
+        { { 3.0f, 3.0f, 0.0f } , 3 },
+        { { 4.0f, 3.0f, 0.0f } , 4 },
+        { { 5.0f, 3.0f, 0.0f } , 5 },
+        { { 6.0f, 3.0f, 0.0f } , 6 },
+        { { 7.0f, 3.0f, 0.0f } , 7 },
+    };
+
+public:
+    ~InstanceData() override = default;
+
+    uint32_t GetWidth() const override
+    {
+        return static_cast<uint32_t>(instances.size());
+    }
+
+    uint32_t GetHeight() const override
+    {
+        return 1;
+    }
+
+    const uint8_t* GetData() const override
+    {
+        return reinterpret_cast<const uint8_t*>(instances.data());
+    }
+
+    uint32_t GetSize() const override
+    {
+        return GetWidth() * sizeof(Instance);
+    }
+
+    uint32_t GetDepth() const override
+    {
+        return 1;
+    }
+};
+
 class IndexData
     : public Vulkan::IDataProvider
 {
@@ -302,6 +375,7 @@ class VulkanRenderer
 
     std::unique_ptr<Vulkan::IFactory> factory;
     Vulkan::IIndexBuffer*   index_buffer = nullptr;
+    Vulkan::IInstanceBuffer*  instance_buffer = nullptr;
     Vulkan::IVertexBuffer*  vertex_buffer = nullptr;
     Vulkan::IUniformBuffer* uniform_buffer = nullptr;
     Vulkan::IDescriptorSet* descriptor_set = nullptr;
@@ -355,6 +429,11 @@ public:
         vertex_buffer = &factory->CreateVertexBuffer(VertexData{}, attribs);
         index_buffer  = &factory->CreateIndexBuffer(IndexData{});
 
+        Vulkan::Attributes insta;
+        insta.push_back(Vulkan::AttributeFormat::vec3f);
+        insta.push_back(Vulkan::AttributeFormat::vec1i);
+        instance_buffer = &factory->CreateInstanceBuffer(InstanceData{}, insta);
+
         uniform_buffer = &factory->CreateUniformBuffer(uniform_data);
 
         Vulkan::InputResources bindings = {
@@ -368,7 +447,7 @@ public:
         auto& fragment = factory->CreateShader(ShaderData(":/texture.frag.spv"), Vulkan::ShaderType::fragment);
         Vulkan::Shaders shaders = { vertex, fragment };
 
-        pipeline = &factory->CreatePipeline(*descriptor_set, shaders, *vertex_buffer);
+        pipeline = &factory->CreatePipeline(*descriptor_set, shaders, *vertex_buffer, *instance_buffer);
     }
 
     void releaseResources() override
@@ -455,7 +534,7 @@ public:
             auto render_pass = factory->CreateRenderPass();
             render_pass->Bind(*descriptor_set);
             render_pass->Bind(*pipeline);
-            render_pass->Draw(*index_buffer, *vertex_buffer);
+            render_pass->Draw(*index_buffer, *vertex_buffer, *instance_buffer);
         }
         m_window.frameReady();
         m_window.requestUpdate();
