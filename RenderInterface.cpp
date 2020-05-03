@@ -9,6 +9,7 @@
 #include "IFactory.h"
 
 #include "Noise.h"
+#include "Chunk.h"
 
 #include <iostream>
 
@@ -363,11 +364,12 @@ class VulkanRenderer
 
     std::unique_ptr<Vulkan::IFactory> factory;
     Vulkan::IIndexBuffer*   index_buffer = nullptr;
-    Vulkan::IInstanceBuffer*  instance_buffer = nullptr;
     Vulkan::IVertexBuffer*  vertex_buffer = nullptr;
     Vulkan::IUniformBuffer* uniform_buffer = nullptr;
     Vulkan::IDescriptorSet* descriptor_set = nullptr;
     Vulkan::IPipeline*      pipeline = nullptr;
+
+    std::vector<Scene::Chunk> chunks;
 
     UniformData uniform_data{};
 
@@ -387,9 +389,10 @@ public:
         : m_window(window)
     {
         camera.type = Camera::CameraType::firstperson;
-        camera.setPosition(QVector3D(0.0f, 0.0f, -2.5f));
+        camera.setPosition(QVector3D(0.0f, 80.0f, -2.5f));
         camera.setRotation(QVector3D(0.0f, 15.0f, 0.0f));
         camera.setPerspective(60.0f, (float)window.width() / (float)window.height(), 0.1f, 256.0f);
+        camera.movementSpeed *= 10;
     }
 
     void initResources() override
@@ -397,14 +400,15 @@ public:
         factory = CreateFactory(m_window);
 
         auto& dirt_texture = factory->CreateTexture(TextureSource({
-            ":/dirt.png",
-            ":/bricks.png",
-            ":/cobblestone.png",
-            ":/ice.png",
-            ":/stone.png",
-            ":/sand.png",
-            ":/snow.png",
-            ":/oak_planks.png",
+            /* 0 */":/dirt.png",
+            /* 1 */":/bricks.png",
+            /* 2 */":/cobblestone.png",
+            /* 3 */":/ice.png",
+            /* 4 */":/stone.png",
+            /* 5 */":/sand.png",
+            /* 6 */":/snow.png",
+            /* 7 */":/oak_planks.png",
+            /* 8 */":/grass.png",
         }));
 
         Vulkan::Attributes attribs;
@@ -415,11 +419,15 @@ public:
         vertex_buffer = &factory->CreateVertexBuffer(VertexData{}, attribs);
         index_buffer  = &factory->CreateIndexBuffer(IndexData{});
 
-        Vulkan::Attributes insta;
-        insta.push_back(Vulkan::AttributeFormat::vec3f);
-        insta.push_back(Vulkan::AttributeFormat::vec1i);
-        insta.push_back(Vulkan::AttributeFormat::vec1i);
-        instance_buffer = &factory->CreateInstanceBuffer(InstanceData{}, insta);
+        auto noiser = INoise::CreateNoise(331132);
+        int n = 16;
+        for (int i = -n; i < n; ++i)
+        {
+            for (int j = -n; j < n; ++j)
+            {
+                chunks.emplace_back(Scene::Point2D{ i, j }, *factory, *noiser);
+            }
+        }
 
         uniform_buffer = &factory->CreateUniformBuffer(uniform_data);
 
@@ -434,7 +442,7 @@ public:
         auto& fragment = factory->CreateShader(ShaderData(":/texture.frag.spv"), Vulkan::ShaderType::fragment);
         Vulkan::Shaders shaders = { vertex, fragment };
 
-        pipeline = &factory->CreatePipeline(*descriptor_set, shaders, *vertex_buffer, *instance_buffer);
+        pipeline = &factory->CreatePipeline(*descriptor_set, shaders, *vertex_buffer, chunks.front().GetData());
     }
 
     void releaseResources() override
@@ -521,7 +529,8 @@ public:
             auto render_pass = factory->CreateRenderPass();
             render_pass->Bind(*descriptor_set);
             render_pass->Bind(*pipeline);
-            render_pass->Draw(*index_buffer, *vertex_buffer, *instance_buffer);
+            for (const auto& chunk : chunks)
+                render_pass->Draw(*index_buffer, *vertex_buffer, chunk.GetData());
         }
         m_window.frameReady();
         m_window.requestUpdate();
@@ -533,6 +542,10 @@ public:
         std::string windowTitle;
         windowTitle = "QVulkanApp - " + device;
         windowTitle += " - " + std::to_string(frame_counter) + " fps";
+        windowTitle += " - " + std::to_string(camera.position.x()) + "; "
+            + std::to_string(camera.position.y()) + "; "
+            + std::to_string(camera.position.z()) + "; ";
+
         return windowTitle;
     }
 

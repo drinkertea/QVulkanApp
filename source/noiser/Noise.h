@@ -6,7 +6,7 @@
 struct INoise
 {
     virtual ~INoise() = default;
-    virtual uint32_t GetHeight(uint32_t x, uint32_t y) const = 0;
+    virtual int32_t GetHeight(int32_t x, int32_t y) const = 0;
 
     static std::unique_ptr<INoise> CreateNoise(uint32_t seed);
 };
