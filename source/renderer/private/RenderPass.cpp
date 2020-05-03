@@ -78,6 +78,22 @@ void RenderPass::Bind(const IPipeline& pip) const
     pipeline->Bind(*window.vulkanInstance()->deviceFunctions(window.device()), window.currentCommandBuffer());
 }
 
+void RenderPass::Bind(const IIndexBuffer& ib, const IVertexBuffer& vb) const
+{
+    auto index_buffer = dynamic_cast<const IndexBuffer*>(&ib);
+    if (!index_buffer)
+        throw std::logic_error("Unknown IndexBuffer set derived");
+
+    auto vertex_buffer = dynamic_cast<const VertexBuffer*>(&vb);
+    if (!vertex_buffer)
+        throw std::logic_error("Unknown VertexBuffer set derived");
+
+    current_index_count = index_buffer->GetIndexCount();
+    auto& dev_funcs = *window.vulkanInstance()->deviceFunctions(window.device());
+    index_buffer->Bind(dev_funcs, window.currentCommandBuffer());
+    vertex_buffer->Bind(dev_funcs, window.currentCommandBuffer());
+}
+
 void RenderPass::Draw(const IIndexBuffer& ib, const IVertexBuffer& vb) const
 {
     auto index_buffer = dynamic_cast<const IndexBuffer*>(&ib);
@@ -94,26 +110,16 @@ void RenderPass::Draw(const IIndexBuffer& ib, const IVertexBuffer& vb) const
     dev_funcs.vkCmdDrawIndexed(window.currentCommandBuffer(), index_buffer->GetIndexCount(), 1, 0, 0, 0);
 }
 
-void RenderPass::Draw(const IIndexBuffer& ib, const IVertexBuffer& vb, const IInstanceBuffer& ins) const
+void RenderPass::Draw(const IInstanceBuffer& ins) const
 {
-    auto index_buffer = dynamic_cast<const IndexBuffer*>(&ib);
-    if (!index_buffer)
-        throw std::logic_error("Unknown IndexBuffer set derived");
-
-    auto vertex_buffer = dynamic_cast<const VertexBuffer*>(&vb);
-    if (!vertex_buffer)
-        throw std::logic_error("Unknown VertexBuffer set derived");
-
     auto inst_buffer = dynamic_cast<const InstanceBuffer*>(&ins);
     if (!inst_buffer)
         throw std::logic_error("Unknown InstanceBuffer set derived");
 
     auto& dev_funcs = *window.vulkanInstance()->deviceFunctions(window.device());
-    index_buffer->Bind(dev_funcs, window.currentCommandBuffer());
-    vertex_buffer->Bind(dev_funcs, window.currentCommandBuffer());
     inst_buffer->Bind(dev_funcs, window.currentCommandBuffer());
 
-    dev_funcs.vkCmdDrawIndexed(window.currentCommandBuffer(), index_buffer->GetIndexCount(), inst_buffer->GetInstanceCount(), 0, 0, 0);
+    dev_funcs.vkCmdDrawIndexed(window.currentCommandBuffer(), current_index_count, inst_buffer->GetInstanceCount(), 0, 0, 0);
 }
 
 }
