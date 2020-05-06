@@ -436,7 +436,7 @@ public:
         vertex_buffer = &factory->CreateVertexBuffer(VertexData{}, attribs);
         index_buffer  = &factory->CreateIndexBuffer(IndexData{});
 
-        auto noiser = INoise::CreateNoise(331132);
+        auto noiser = INoise::CreateNoise(331132, 0.5f);
         int n = 16;
         for (int i = -n; i < n; ++i)
         {
