@@ -63,6 +63,7 @@ CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
 Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
     : base_point(base)
 {
+    constexpr float amplitude = 0.5f;
     std::vector<CubeInstance> cubes;
     for (int32_t x_offset = 0; x_offset < size; ++x_offset)
     {
