@@ -54,7 +54,7 @@ CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
     else if (y > 78)
         cube.texture = 4;
     else if (y > 57)
-        cube.texture = 8;
+        cube.texture = face == CubeFace::top ? 8 : 9;
     else
         cube.texture = 5;
     return cube;
