@@ -12,6 +12,7 @@
 #include "Chunk.h"
 
 #include <iostream>
+#include <algorithm>
 
 struct IvalidPath : public std::runtime_error
 {
@@ -41,6 +42,21 @@ public:
                 throw IvalidPath(url.toStdString());
 
             image = image.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
+
+            if (url.indexOf("grass_block_top") != -1)
+            {
+                for (int x = 0; x < image.width(); ++x)
+                {
+                    for (int y = 0; y < image.width(); ++y)
+                    {
+                        auto color = image.pixelColor(x, y);
+                        color.setRed(47.f   * 3.1f * color.redF());
+                        color.setGreen(75.f * 3.1f * color.greenF());
+                        color.setBlue(35.f  * 3.1f * color.blueF());
+                        image.setPixelColor(x, y, color);
+                    }
+                }
+            }
 
             width = image.width();
             height = image.height();
@@ -408,7 +424,8 @@ public:
             /* 5 */":/sand.png",
             /* 6 */":/snow.png",
             /* 7 */":/oak_planks.png",
-            /* 8 */":/grass.png",
+            /* 8 */":/grass_block_top.png",
+            /* 9 */":/grass_block_side.png",
         }));
 
         Vulkan::Attributes attribs;
