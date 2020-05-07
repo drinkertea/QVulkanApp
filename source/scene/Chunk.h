@@ -3,6 +3,7 @@
 #include "IFactory.h"
 
 #include <vector>
+#include <array>
 
 struct INoise;
 
@@ -38,12 +39,18 @@ class Chunk
     static constexpr int32_t size = 32;
 
 public:
+    using BoundingRect = std::array<Point2D, 4>;
+
     Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser);
 
     const Vulkan::IInstanceBuffer& GetData() const;
 
+    const BoundingRect& GetBRect() const;
+
 private:
     Point2D base_point{};
+
+    BoundingRect brect;
 
     Vulkan::IInstanceBuffer* buffer = nullptr;
 };
