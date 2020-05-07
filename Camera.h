@@ -1,6 +1,72 @@
 #pragma once
 #include <QMatrix4x4>
 #include <qmath.h>
+#include <array>
+
+class Frustum
+{
+public:
+    enum side { LEFT = 0, RIGHT = 1, TOP = 2, BOTTOM = 3, BACK = 4, FRONT = 5 };
+    std::array<QVector4D, 6> planes;
+
+    void update(QMatrix4x4 model)
+    {
+        std::array<QVector4D, 4> matrix = {
+            model.column(0),
+            model.column(1),
+            model.column(2),
+            model.column(3),
+        };
+        planes[LEFT].setX(matrix[0].w() + matrix[0].x());
+        planes[LEFT].setY(matrix[1].w() + matrix[1].x());
+        planes[LEFT].setZ(matrix[2].w() + matrix[2].x());
+        planes[LEFT].setW(matrix[3].w() + matrix[3].x());
+
+        planes[RIGHT].setX(matrix[0].w() - matrix[0].x());
+        planes[RIGHT].setY(matrix[1].w() - matrix[1].x());
+        planes[RIGHT].setZ(matrix[2].w() - matrix[2].x());
+        planes[RIGHT].setW(matrix[3].w() - matrix[3].x());
+
+        planes[TOP].setX(matrix[0].w() - matrix[0].y());
+        planes[TOP].setY(matrix[1].w() - matrix[1].y());
+        planes[TOP].setZ(matrix[2].w() - matrix[2].y());
+        planes[TOP].setW(matrix[3].w() - matrix[3].y());
+
+        planes[BOTTOM].setX(matrix[0].w() + matrix[0].y());
+        planes[BOTTOM].setY(matrix[1].w() + matrix[1].y());
+        planes[BOTTOM].setZ(matrix[2].w() + matrix[2].y());
+        planes[BOTTOM].setW(matrix[3].w() + matrix[3].y());
+
+        planes[BACK].setX(matrix[0].w() + matrix[0].z());
+        planes[BACK].setY(matrix[1].w() + matrix[1].z());
+        planes[BACK].setZ(matrix[2].w() + matrix[2].z());
+        planes[BACK].setW(matrix[3].w() + matrix[3].z());
+
+        planes[FRONT].setX(matrix[0].w() - matrix[0].z());
+        planes[FRONT].setY(matrix[1].w() - matrix[1].z());
+        planes[FRONT].setZ(matrix[2].w() - matrix[2].z());
+        planes[FRONT].setW(matrix[3].w() - matrix[3].z());
+
+        for (auto i = 0; i < planes.size(); i++)
+        {
+            planes[i].normalize();
+        }
+    }
+
+    bool checkSphere(QVector3D pos, float radius)
+    {
+        for (auto i = 0; i < planes.size(); i++)
+        {
+            if (i == 2 || i == 3)
+                continue;
+            if ((planes[i].x() * pos.x()) + (planes[i].y() * pos.y()) + (planes[i].z() * pos.z()) + planes[i].w() <= -radius)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+};
 
 class Camera
 {

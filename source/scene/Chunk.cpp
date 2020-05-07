@@ -1,6 +1,8 @@
 #include "Noise.h"
 #include "Chunk.h"
 
+#include <array>
+
 namespace Scene
 {
 
@@ -63,7 +65,16 @@ CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
 Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
     : base_point(base)
 {
-    constexpr float amplitude = 0.5f;
+    int32_t additional = size / 2;
+    brect[0].x = base_point.x * size - additional;
+    brect[0].y = base_point.y * size - additional;
+    brect[1].y = base_point.y * size - additional;
+    brect[2].x = base_point.x * size - additional;
+    brect[1].x = base_point.x * size + size - additional;
+    brect[2].y = base_point.y * size + size - additional;
+    brect[3].x = base_point.x * size + size - additional;
+    brect[3].y = base_point.y * size + size - additional;
+
     std::vector<CubeInstance> cubes;
     for (int32_t x_offset = 0; x_offset < size; ++x_offset)
     {
@@ -72,7 +83,6 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
             auto x = base_point.x * size + x_offset;
             auto z = base_point.y * size + z_offset;
             int32_t y = noiser.GetHeight(x, z);
-
             cubes.emplace_back(CreateFace(x, y, z, CubeFace::top));
             while (y >= 0)
             {
@@ -115,6 +125,11 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
 const Vulkan::IInstanceBuffer& Scene::Chunk::GetData() const
 {
     return *buffer;
+}
+
+const Chunk::BoundingRect& Chunk::GetBRect() const
+{
+    return brect;
 }
 
 }
