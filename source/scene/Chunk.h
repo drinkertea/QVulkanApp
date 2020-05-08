@@ -37,7 +37,7 @@ enum class CubeFace : uint32_t
 struct CubeInstance
 {
     float    pos[3];
-    int32_t  texture;
+    uint32_t texture;
     CubeFace face;
 };
 

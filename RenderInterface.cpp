@@ -2,9 +2,6 @@
 #include <QVector2D>
 #include <QVulkanFunctions>
 
-#include "RenderInterface.h"
-#include "Camera.h"
-
 #include <IRenderer.h>
 #include <IFactory.h>
 #include <DataProveder.h>
@@ -16,7 +13,8 @@
 #include <iostream>
 #include <algorithm>
 
-std::unique_ptr<Scene::ITextureLoader> CreateTextureLoader();
+#include "RenderInterface.h"
+#include "Camera.h"
 
 std::vector<uint8_t> GetCameraData(Camera& camera)
 {

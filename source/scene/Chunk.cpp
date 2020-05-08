@@ -1,9 +1,10 @@
-#include "Noise.h"
-#include "Chunk.h"
-#include "DataProveder.h"
+#include <Noise.h>
+#include <DataProveder.h>
 
 #include <array>
 
+#include "Chunk.h"
+#include "Texture.h"
 
 namespace Scene
 {
@@ -16,13 +17,15 @@ CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
     cube.pos[2] = static_cast<float>(z);
     cube.face = static_cast<CubeFace>(face);
     if (y > 84)
-        cube.texture = 6;
+        cube.texture = static_cast<uint32_t>(TextureType::Snow);
     else if (y > 78)
-        cube.texture = 4;
+        cube.texture = static_cast<uint32_t>(TextureType::Stone);
     else if (y > 57)
-        cube.texture = face == CubeFace::top ? 8 : 9;
+        cube.texture = face == CubeFace::top ?
+        static_cast<uint32_t>(TextureType::GrassBlockTop) :
+        static_cast<uint32_t>(TextureType::GrassBlockSide);
     else
-        cube.texture = 5;
+        cube.texture = static_cast<uint32_t>(TextureType::Sand);
     return cube;
 }
 

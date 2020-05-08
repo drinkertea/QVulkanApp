@@ -17,12 +17,12 @@ struct IDataProvider
 
 struct IInputResource
 {
-    virtual ~IInputResource() = default;
+    virtual ~IInputResource() = 0 {}
 };
 
 struct ITexture : public IInputResource
 {
-    virtual ~ITexture() = default;
+    virtual ~ITexture() = 0 {}
 };
 
 struct IBuffer
@@ -55,17 +55,17 @@ struct IUniformBuffer
 
 struct IDescriptorSet
 {
-    virtual ~IDescriptorSet() = default;
+    virtual ~IDescriptorSet() = 0 {}
 };
 
 struct IShader
 {
-    virtual ~IShader() = default;
+    virtual ~IShader() = 0 {}
 };
 
 struct IPipeline
 {
-    virtual ~IPipeline() = default;
+    virtual ~IPipeline() = 0 {}
 };
 
 struct IRenderPass
