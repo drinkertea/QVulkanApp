@@ -3,6 +3,42 @@
 #include <qmath.h>
 #include <array>
 
+class AAbox
+{
+    QVector3D minp;
+    QVector3D maxp;
+public:
+    AAbox(QVector3D minp, QVector3D maxp)
+        : minp(std::move(minp))
+        , maxp(std::move(maxp))
+    {
+    }
+
+    QVector3D GetPositive(const QVector4D& normal) const
+    {
+        auto p = minp;
+        if (normal.x() >= 0)
+            p.setX(maxp.x());
+        if (normal.y() >= 0)
+            p.setY(maxp.y());
+        if (normal.z() >= 0)
+            p.setZ(maxp.z());
+        return p;
+    }
+
+    QVector3D GetNegative(const QVector4D& normal) const
+    {
+        auto p = maxp;
+        if (normal.x() >= 0)
+            p.setX(minp.x());
+        if (normal.y() >= 0)
+            p.setY(minp.y());
+        if (normal.z() >= 0)
+            p.setZ(minp.z());
+        return p;
+    }
+};
+
 class Frustum
 {
 public:
@@ -53,16 +89,21 @@ public:
         }
     }
 
-    bool checkSphere(QVector3D pos, float radius)
+    static float distance(const QVector4D& plane, const QVector3D& pos)
+    {
+        return plane.x() * pos.x() + plane.y() * pos.y() + plane.z() * pos.z() + plane.w();
+    }
+
+    bool checkBox(const AAbox& box)
     {
         for (auto i = 0; i < planes.size(); i++)
         {
-            if (i == 2 || i == 3)
-                continue;
-            if ((planes[i].x() * pos.x()) + (planes[i].y() * pos.y()) + (planes[i].z() * pos.z()) + planes[i].w() <= -radius)
-            {
+            if (distance(planes[i], box.GetPositive(planes[i])) <= 0)
                 return false;
-            }
+
+            // Intersection check
+            // else if (distance(planes[i], box.GetNegative(planes[i])) <= 0)
+            //     return true;
         }
         return true;
     }

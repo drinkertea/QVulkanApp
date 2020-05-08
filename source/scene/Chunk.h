@@ -16,6 +16,13 @@ struct Point2D
     int32_t y = 0;
 };
 
+struct Point3D
+{
+    int32_t x = 0;
+    int32_t y = 0;
+    int32_t z = 0;
+};
+
 enum class CubeFace : uint32_t
 {
     front = 0,
@@ -39,18 +46,15 @@ class Chunk
     static constexpr int32_t size = 32;
 
 public:
-    using BoundingRect = std::array<Point2D, 4>;
-
     Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser);
 
     const Vulkan::IInstanceBuffer& GetData() const;
 
-    const BoundingRect& GetBRect() const;
+    const std::pair<Point3D, Point3D>& GetBBox() const;
 
 private:
     Point2D base_point{};
-
-    BoundingRect brect;
+    std::pair<Point3D, Point3D> bbox;
 
     Vulkan::IInstanceBuffer* buffer = nullptr;
 };
