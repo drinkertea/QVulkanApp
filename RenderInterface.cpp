@@ -150,98 +150,11 @@ public:
     }
 };
 
-class InstanceData
-    : public Vulkan::IDataProvider
-{
-    enum class Face
-    {
-        front = 0,
-        back,
-        left,
-        right,
-        top,
-        bottom,
-    };
-
-    struct Instance {
-        float pos[3];
-        int texture;
-        int face;
-    };
-
-    std::vector<Instance> instances =
-    {
-        { { 0.0f, 0.0f, 0.0f } , 0, 0 },
-        { { 0.0f, 0.0f, 0.0f } , 0, 1 },
-        { { 0.0f, 0.0f, 0.0f } , 0, 2 },
-        { { 0.0f, 0.0f, 0.0f } , 0, 3 },
-        { { 0.0f, 0.0f, 0.0f } , 0, 4 },
-        { { 0.0f, 0.0f, 0.0f } , 0, 5 },
-    };
-
-public:
-    InstanceData()
-    {
-        auto t = instances;
-        instances.clear();
-        int k = 0;
-        while (k < 8)
-        {
-            auto tt = t;
-            for (auto& x : tt)
-            {
-                x.texture = k;
-                x.pos[0] = k;
-            }
-            k++;
-            int y = -50;
-            while (y++ < 50)
-            {
-                for (auto& x : tt)
-                    x.pos[1] = y;
-                instances.insert(instances.end(), tt.begin(), tt.end());
-            }
-        }
-    }
-
-    ~InstanceData() override = default;
-
-    uint32_t GetWidth() const override
-    {
-        return static_cast<uint32_t>(instances.size());
-    }
-
-    uint32_t GetHeight() const override
-    {
-        return 1;
-    }
-
-    const uint8_t* GetData() const override
-    {
-        return reinterpret_cast<const uint8_t*>(instances.data());
-    }
-
-    uint32_t GetSize() const override
-    {
-        return GetWidth() * sizeof(Instance);
-    }
-
-    uint32_t GetDepth() const override
-    {
-        return 1;
-    }
-};
-
 class IndexData
     : public Vulkan::IDataProvider
 {
     std::vector<uint32_t> indices = {
-        0,1,2, 2,3,0, // front
-        //0 + 4,1 + 4,2 + 4, 2 + 4,3 + 4,0 + 4, // back
-        //0 + 8,1 + 8,2 + 8, 2 + 8,3 + 8,0 + 8, // left
-        //0 + 12,1 + 12,2 + 12, 2 + 12,3 + 12,0 + 12, // back
-        //0 + 16,1 + 16,2 + 16, 2 + 16,3 + 16,0 + 16, // top
-        //0 + 20,1 + 20,2 + 20, 2 + 20,3 + 20,0 + 20, // bot
+        0,1,2, 2,3,0,
     };
 
 public:
@@ -387,9 +300,13 @@ class VulkanRenderer
 
     std::vector<Scene::Chunk> chunks;
 
+    std::unique_ptr<INoise> noiser;
+
     UniformData uniform_data{};
 
     Camera camera;
+
+    int draw_cnt = 0;
     QVector2D mouse_pos;
     bool view_updated = false;
     uint32_t frame_counter = 0;
@@ -405,8 +322,8 @@ public:
         : m_window(window)
     {
         camera.type = Camera::CameraType::firstperson;
-        camera.setPosition(QVector3D(0.0f, 80.0f, -2.5f));
-        camera.setRotation(QVector3D(0.0f, 15.0f, 0.0f));
+        camera.setPosition(QVector3D(0.0f, 80.0f, 0.0f));
+        camera.setRotation(QVector3D(-20.0f, 180.0f, 0.0f));
         camera.setPerspective(60.0f, (float)window.width() / (float)window.height(), 0.1f, 1024.0f);
         camera.movementSpeed *= 10;
     }
@@ -436,7 +353,7 @@ public:
         vertex_buffer = &factory->CreateVertexBuffer(VertexData{}, attribs);
         index_buffer  = &factory->CreateIndexBuffer(IndexData{});
 
-        auto noiser = INoise::CreateNoise(331132, 0.5f);
+        noiser = INoise::CreateNoise(331132, 0.5f);
         int n = 16;
         for (int i = -n; i < n; ++i)
         {
@@ -547,8 +464,28 @@ public:
             render_pass->Bind(*descriptor_set);
             render_pass->Bind(*pipeline);
             render_pass->Bind(*index_buffer, *vertex_buffer);
+
+            Frustum frustum;
+            frustum.update(camera.matrices.perspective * camera.matrices.view);
+
+            draw_cnt = 0;
             for (const auto& chunk : chunks)
+            {
+                const auto& bbox = chunk.GetBBox();
+                if (!frustum.checkBox(AAbox({
+                    static_cast<float>(bbox.first.x),
+                    static_cast<float>(bbox.first.y),
+                    static_cast<float>(bbox.first.z)
+                }, {
+                    static_cast<float>(bbox.second.x),
+                    static_cast<float>(bbox.second.y),
+                    static_cast<float>(bbox.second.z)
+                })))
+                    continue;
+
+                ++draw_cnt;
                 render_pass->Draw(chunk.GetData());
+            }
         }
         m_window.frameReady();
         m_window.requestUpdate();
@@ -560,9 +497,14 @@ public:
         std::string windowTitle;
         windowTitle = "QVulkanApp - " + device;
         windowTitle += " - " + std::to_string(frame_counter) + " fps";
-        windowTitle += " - " + std::to_string(camera.position.x()) + "; "
-            + std::to_string(camera.position.y()) + "; "
-            + std::to_string(camera.position.z()) + "; ";
+        windowTitle += " - " + std::to_string(draw_cnt) + " chunks ";
+        windowTitle += " - " + std::to_string(camera.viewPos.x()) + "; "
+            + std::to_string(camera.viewPos.y()) + "; "
+            + std::to_string(camera.viewPos.z()) + "; ";
+
+        windowTitle += " - " + std::to_string(camera.rotation.x()) + "; "
+            + std::to_string(camera.rotation.y()) + "; "
+            + std::to_string(camera.rotation.z()) + "; ";
 
         return windowTitle;
     }

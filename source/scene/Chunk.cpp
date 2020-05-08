@@ -1,6 +1,8 @@
 #include "Noise.h"
 #include "Chunk.h"
 
+#include <array>
+
 namespace Scene
 {
 
@@ -63,7 +65,13 @@ CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
 Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
     : base_point(base)
 {
-    constexpr float amplitude = 0.5f;
+    bbox.first.x = base_point.x * size;
+    bbox.first.z = base_point.y * size;
+    bbox.first.y = std::numeric_limits<decltype(bbox.first.y)>::max();
+    bbox.second.x = base_point.x * size + size;
+    bbox.second.z = base_point.y * size + size;
+    bbox.second.y = 0;
+
     std::vector<CubeInstance> cubes;
     for (int32_t x_offset = 0; x_offset < size; ++x_offset)
     {
@@ -72,8 +80,9 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
             auto x = base_point.x * size + x_offset;
             auto z = base_point.y * size + z_offset;
             int32_t y = noiser.GetHeight(x, z);
-
             cubes.emplace_back(CreateFace(x, y, z, CubeFace::top));
+
+            bbox.second.y = std::max(bbox.second.y, y);
             while (y >= 0)
             {
                 auto before = cubes.size();
@@ -99,6 +108,7 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
 
                 --y;
             }
+            bbox.first.y = std::min(bbox.first.y, y);
         }
     }
     if (cubes.empty())
@@ -115,6 +125,11 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
 const Vulkan::IInstanceBuffer& Scene::Chunk::GetData() const
 {
     return *buffer;
+}
+
+const std::pair<Point3D, Point3D>& Chunk::GetBBox() const
+{
+    return bbox;
 }
 
 }

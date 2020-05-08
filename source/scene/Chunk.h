@@ -3,6 +3,7 @@
 #include "IFactory.h"
 
 #include <vector>
+#include <array>
 
 struct INoise;
 
@@ -13,6 +14,13 @@ struct Point2D
 {
     int32_t x = 0;
     int32_t y = 0;
+};
+
+struct Point3D
+{
+    int32_t x = 0;
+    int32_t y = 0;
+    int32_t z = 0;
 };
 
 enum class CubeFace : uint32_t
@@ -42,8 +50,11 @@ public:
 
     const Vulkan::IInstanceBuffer& GetData() const;
 
+    const std::pair<Point3D, Point3D>& GetBBox() const;
+
 private:
     Point2D base_point{};
+    std::pair<Point3D, Point3D> bbox;
 
     Vulkan::IInstanceBuffer* buffer = nullptr;
 };
