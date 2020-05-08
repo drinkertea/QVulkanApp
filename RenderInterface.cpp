@@ -5,102 +5,18 @@
 #include "RenderInterface.h"
 #include "Camera.h"
 
-#include "IRenderer.h"
-#include "IFactory.h"
-#include "DataProveder.h"
+#include <IRenderer.h>
+#include <IFactory.h>
+#include <DataProveder.h>
 
-#include "Noise.h"
-#include "Chunk.h"
+#include <Noise.h>
+#include <Chunk.h>
+#include <Texture.h>
 
 #include <iostream>
 #include <algorithm>
 
-struct IvalidPath : public std::runtime_error
-{
-    IvalidPath(const std::string& msg)
-        : std::runtime_error("Cannot find the path specified: " + msg)
-    {
-    }
-};
-
-class TextureSource
-    : public Vulkan::IDataProvider
-{
-    std::vector<uint8_t> data;
-    uint32_t width = 0;
-    uint32_t height = 0;
-    uint32_t depth = 1;
-
-public:
-    TextureSource(const std::vector<QString>& urls)
-    {
-        size_t i = 0;
-        for (const auto& url : urls)
-        {
-            QImage image(url);
-            if (image.isNull())
-                throw IvalidPath(url.toStdString());
-
-            image = image.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
-
-            if (url.indexOf("grass_block_top") != -1)
-            {
-                for (int x = 0; x < image.width(); ++x)
-                {
-                    for (int y = 0; y < image.width(); ++y)
-                    {
-                        auto color = image.pixelColor(x, y);
-                        color.setRed(47.f   * 3.1f * color.redF());
-                        color.setGreen(75.f * 3.1f * color.greenF());
-                        color.setBlue(35.f  * 3.1f * color.blueF());
-                        image.setPixelColor(x, y, color);
-                    }
-                }
-            }
-
-            width = image.width();
-            height = image.height();
-            depth = static_cast<uint32_t>(urls.size());
-            data.resize(height * width * 4 * depth);
-            auto mapped_data = &data[height * width * 4 * i];
-
-            for (uint32_t y = 0; y < height; ++y)
-            {
-                auto row_pitch = width * 4; // todo: provide format or row pith
-                memcpy(mapped_data, image.constScanLine(y), row_pitch);
-                mapped_data += row_pitch;
-            }
-            ++i;
-        }
-    }
-
-    ~TextureSource() override = default;
-
-    uint32_t GetWidth() const override
-    {
-        return width;
-    }
-
-    uint32_t GetHeight() const override
-    {
-        return height;
-    }
-
-    const uint8_t* GetData() const override
-    {
-        return data.data();
-    }
-
-    uint32_t GetSize() const override
-    {
-        return static_cast<uint32_t>(data.size());
-    }
-
-    uint32_t GetDepth() const override
-    {
-        return depth;
-    }
-};
+std::unique_ptr<Scene::ITextureLoader> CreateTextureLoader();
 
 std::vector<uint8_t> GetCameraData(Camera& camera)
 {
@@ -118,7 +34,7 @@ std::vector<uint8_t> GetShaderData(const QString& url)
 {
     QFile file(url);
     if (!file.open(QIODevice::ReadOnly))
-        throw IvalidPath(url.toStdString());
+        throw std::runtime_error("Incalid path: " + url.toStdString());
 
     QByteArray blob = file.readAll();
     file.close();
@@ -140,6 +56,8 @@ class VulkanRenderer
     std::vector<Scene::Chunk> chunks;
 
     std::unique_ptr<INoise> noiser;
+
+    std::unique_ptr<Scene::Texture> textures;
 
     Camera camera;
 
@@ -168,19 +86,6 @@ public:
     void initResources() override
     {
         factory = CreateFactory(m_window);
-
-        auto& dirt_texture = factory->CreateTexture(TextureSource({
-            /* 0 */":/dirt.png",
-            /* 1 */":/bricks.png",
-            /* 2 */":/cobblestone.png",
-            /* 3 */":/ice.png",
-            /* 4 */":/stone.png",
-            /* 5 */":/sand.png",
-            /* 6 */":/snow.png",
-            /* 7 */":/oak_planks.png",
-            /* 8 */":/grass_block_top.png",
-            /* 9 */":/grass_block_side.png",
-        }));
 
         Vulkan::Attributes attribs;
         attribs.push_back(Vulkan::AttributeFormat::vec1i);
@@ -219,9 +124,13 @@ public:
 
         uniform_buffer = &factory->CreateUniformBuffer(Vulkan::BufferDataOwner<uint8_t>(GetCameraData(camera)));
 
+        using Scene::TextureType;
+        auto texture_loader = CreateTextureLoader();
+        textures = std::make_unique<Scene::Texture>(TextureType::First, Scene::texture_type_count, *texture_loader, *factory);
+
         Vulkan::InputResources bindings = {
             *uniform_buffer,
-            dirt_texture,
+            textures->GetTexture(),
         };
 
         descriptor_set = &factory->CreateDescriptorSet(bindings);
