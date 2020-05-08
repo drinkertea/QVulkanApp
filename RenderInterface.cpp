@@ -200,7 +200,6 @@ public:
         }
     }
 
-
     void OnMouseMove(int32_t x, int32_t y, const Qt::MouseButtons& buttons) override
     {
         int32_t dx = static_cast<int32_t>(mouse_pos.x()) - x;
