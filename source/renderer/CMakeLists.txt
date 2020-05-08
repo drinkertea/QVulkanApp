@@ -6,6 +6,7 @@ find_package(Qt5 COMPONENTS GUI REQUIRED)
 file(GLOB PublicHeaders
     include/IFactory.h
     include/IRenderer.h
+    include/DataProveder.h
 )
 source_group("Public" FILES ${PublicHeaders})
 

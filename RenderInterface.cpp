@@ -7,6 +7,7 @@
 
 #include "IRenderer.h"
 #include "IFactory.h"
+#include "DataProveder.h"
 
 #include "Noise.h"
 #include "Chunk.h"
@@ -31,7 +32,6 @@ class TextureSource
     uint32_t depth = 1;
 
 public:
-
     TextureSource(const std::vector<QString>& urls)
     {
         size_t i = 0;
@@ -102,189 +102,28 @@ public:
     }
 };
 
-class VertexData
-    : public Vulkan::IDataProvider
+std::vector<uint8_t> GetCameraData(Camera& camera)
 {
-    enum class Corner : uint32_t
-    {
-        TopLeft = 0,
-        BotLeft,
-        BotRight,
-        TopRight,
-    };
+    constexpr size_t mat_size = 16 * sizeof(float);
+    constexpr size_t vec_size = 4 * sizeof(float);
 
-    std::vector<Corner> vertices =
-    {
-        Corner::TopLeft,
-        Corner::BotLeft,
-        Corner::BotRight,
-        Corner::TopRight,
-    };
+    std::vector<uint8_t> res(mat_size * 2 + vec_size);
+    memcpy(&res[0], camera.matrices.perspective.constData(), mat_size);
+    memcpy(&res[mat_size], camera.matrices.view.constData(), mat_size);
+    memcpy(&res[mat_size * 2], &camera.viewPos[0], vec_size);
+    return res;
+}
 
-public:
-    ~VertexData() override = default;
-
-    uint32_t GetWidth() const override
-    {
-        return static_cast<uint32_t>(vertices.size());
-    }
-
-    uint32_t GetHeight() const override
-    {
-        return 1;
-    }
-
-    const uint8_t* GetData() const override
-    {
-        return reinterpret_cast<const uint8_t*>(vertices.data());
-    }
-
-    uint32_t GetSize() const override
-    {
-        return GetWidth() * sizeof(Corner);
-    }
-
-    uint32_t GetDepth() const override
-    {
-        return 1;
-    }
-};
-
-class IndexData
-    : public Vulkan::IDataProvider
+std::vector<uint8_t> GetShaderData(const QString& url)
 {
-    std::vector<uint32_t> indices = {
-        0,1,2, 2,3,0,
-    };
+    QFile file(url);
+    if (!file.open(QIODevice::ReadOnly))
+        throw IvalidPath(url.toStdString());
 
-public:
-    ~IndexData() override = default;
-
-    uint32_t GetWidth() const override
-    {
-        return static_cast<uint32_t>(indices.size());
-    }
-
-    uint32_t GetHeight() const override
-    {
-        return 1;
-    }
-
-    const uint8_t* GetData() const override
-    {
-        return reinterpret_cast<const uint8_t*>(indices.data());
-    }
-
-    uint32_t GetSize() const override
-    {
-        return GetWidth() * sizeof(uint32_t);
-    }
-
-    uint32_t GetDepth() const override
-    {
-        return 1;
-    }
-};
-
-class UniformData
-    : public Vulkan::IDataProvider
-{
-    struct {
-        QMatrix4x4 projection;
-        QMatrix4x4 model_view;
-        QVector4D  view_pos;
-    } m_ubo;
-
-    std::vector<uint8_t> data;
-
-public:
-    ~UniformData() override = default;
-
-    uint32_t GetWidth() const override
-    {
-        return 1;
-    }
-
-    uint32_t GetHeight() const override
-    {
-        return 1;
-    }
-
-    const uint8_t* GetData() const override
-    {
-        return reinterpret_cast<const uint8_t*>(data.data());
-    }
-
-    uint32_t GetSize() const override
-    {
-        return static_cast<uint32_t>(data.size());
-    }
-
-    uint32_t GetDepth() const override
-    {
-        return 1;
-    }
-
-    void Update(const Camera& camera)
-    {
-        constexpr size_t mat_size = 16 * sizeof(float);
-        constexpr size_t vec_size = 4 * sizeof(float);
-
-        m_ubo.projection = camera.matrices.perspective;
-        m_ubo.model_view = camera.matrices.view;
-        m_ubo.view_pos = camera.viewPos;
-
-        data.resize(mat_size * 2 + vec_size);
-        auto mapped = data.data();
-        float t[4] = { m_ubo.view_pos[0], m_ubo.view_pos[1], m_ubo.view_pos[2], m_ubo.view_pos[3] };
-        memcpy(mapped, m_ubo.projection.constData(), mat_size);
-        memcpy(mapped + mat_size, m_ubo.model_view.constData(), mat_size);
-        memcpy(mapped + 2 * mat_size, t, sizeof(t));
-    }
-};
-
-class ShaderData
-    : public Vulkan::IDataProvider
-{
-    QByteArray blob;
-
-public:
-    ShaderData(const QString& url)
-    {
-        QFile file(url);
-        if (!file.open(QIODevice::ReadOnly))
-            throw IvalidPath(url.toStdString());
-
-        blob = file.readAll();
-        file.close();
-    }
-    ~ShaderData() override = default;
-
-    uint32_t GetWidth() const override
-    {
-        return 1;
-    }
-
-    uint32_t GetHeight() const override
-    {
-        return 1;
-    }
-
-    const uint8_t* GetData() const override
-    {
-        return reinterpret_cast<const uint8_t*>(blob.constData());
-    }
-
-    uint32_t GetSize() const override
-    {
-        return blob.size();
-    }
-
-    uint32_t GetDepth() const override
-    {
-        return 1;
-    }
-};
+    QByteArray blob = file.readAll();
+    file.close();
+    return { blob.begin(), blob.end() };
+}
 
 class VulkanRenderer
     : public IVulkanRenderer
@@ -301,8 +140,6 @@ class VulkanRenderer
     std::vector<Scene::Chunk> chunks;
 
     std::unique_ptr<INoise> noiser;
-
-    UniformData uniform_data{};
 
     Camera camera;
 
@@ -348,10 +185,27 @@ public:
         Vulkan::Attributes attribs;
         attribs.push_back(Vulkan::AttributeFormat::vec1i);
 
-        uniform_data.Update(camera);
+        enum class Corner : uint32_t
+        {
+            TopLeft = 0,
+            BotLeft,
+            BotRight,
+            TopRight,
+        };
 
-        vertex_buffer = &factory->CreateVertexBuffer(VertexData{}, attribs);
-        index_buffer  = &factory->CreateIndexBuffer(IndexData{});
+        std::vector<Corner> vertices = {
+            Corner::TopLeft,
+            Corner::BotLeft,
+            Corner::BotRight,
+            Corner::TopRight,
+        };
+
+        std::vector<uint32_t> indices = {
+            0,1,2, 2,3,0,
+        };
+
+        vertex_buffer = &factory->CreateVertexBuffer(Vulkan::BufferDataOwner<Corner>(vertices), attribs);
+        index_buffer  = &factory->CreateIndexBuffer(Vulkan::BufferDataOwner<uint32_t>(indices));
 
         noiser = INoise::CreateNoise(331132, 0.5f);
         int n = 16;
@@ -363,7 +217,7 @@ public:
             }
         }
 
-        uniform_buffer = &factory->CreateUniformBuffer(uniform_data);
+        uniform_buffer = &factory->CreateUniformBuffer(Vulkan::BufferDataOwner<uint8_t>(GetCameraData(camera)));
 
         Vulkan::InputResources bindings = {
             *uniform_buffer,
@@ -372,8 +226,8 @@ public:
 
         descriptor_set = &factory->CreateDescriptorSet(bindings);
 
-        auto& vertex = factory->CreateShader(ShaderData(":/texture.vert.spv"), Vulkan::ShaderType::vertex);
-        auto& fragment = factory->CreateShader(ShaderData(":/texture.frag.spv"), Vulkan::ShaderType::fragment);
+        auto& vertex = factory->CreateShader(Vulkan::BufferDataOwner<uint8_t>(GetShaderData(":/texture.vert.spv")), Vulkan::ShaderType::vertex);
+        auto& fragment = factory->CreateShader(Vulkan::BufferDataOwner<uint8_t>(GetShaderData(":/texture.frag.spv")), Vulkan::ShaderType::fragment);
         Vulkan::Shaders shaders = { vertex, fragment };
 
         pipeline = &factory->CreatePipeline(*descriptor_set, shaders, *vertex_buffer, chunks.front().GetData());
@@ -521,8 +375,7 @@ public:
         if (view_updated)
         {
             view_updated = false;
-            uniform_data.Update(camera);
-            uniform_buffer->Update(uniform_data);
+            uniform_buffer->Update(Vulkan::BufferDataOwner<uint8_t>(GetCameraData(camera)));
         }
 
         Render();

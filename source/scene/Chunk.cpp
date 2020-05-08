@@ -1,48 +1,12 @@
 #include "Noise.h"
 #include "Chunk.h"
+#include "DataProveder.h"
 
 #include <array>
 
+
 namespace Scene
 {
-
-class CubeInstanceData
-    : public Vulkan::IDataProvider
-{
-    const std::vector<CubeInstance>& instances;
-
-public:
-    CubeInstanceData(const std::vector<CubeInstance>& inst)
-        : instances(inst)
-    {
-    }
-    ~CubeInstanceData() override = default;
-
-    uint32_t GetWidth() const override
-    {
-        return static_cast<uint32_t>(instances.size());
-    }
-
-    uint32_t GetHeight() const override
-    {
-        return 1;
-    }
-
-    const uint8_t* GetData() const override
-    {
-        return reinterpret_cast<const uint8_t*>(instances.data());
-    }
-
-    uint32_t GetSize() const override
-    {
-        return GetWidth() * sizeof(CubeInstance);
-    }
-
-    uint32_t GetDepth() const override
-    {
-        return 1;
-    }
-};
 
 CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
 {
@@ -119,7 +83,7 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
     inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
     inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
 
-    buffer = &factory.CreateInstanceBuffer(CubeInstanceData(cubes), inst_attribs);
+    buffer = &factory.CreateInstanceBuffer(Vulkan::BufferDataOwner<CubeInstance>(cubes), inst_attribs);
 }
 
 const Vulkan::IInstanceBuffer& Scene::Chunk::GetData() const
