@@ -325,7 +325,7 @@ public:
         camera.setPosition(QVector3D(0.0f, 80.0f, 0.0f));
         camera.setRotation(QVector3D(-20.0f, 180.0f, 0.0f));
         camera.setPerspective(60.0f, (float)window.width() / (float)window.height(), 0.1f, 1024.0f);
-        camera.movementSpeed *= 10;
+        camera.movementSpeed = 10;
     }
 
     void initResources() override
@@ -408,6 +408,9 @@ public:
         case Qt::Key::Key_D:
             camera.keys.right = true;
             break;
+        case Qt::Key::Key_Shift:
+            camera.movementSpeed = 100;
+            break;
         }
     }
 
@@ -429,6 +432,9 @@ public:
             break;
         case Qt::Key::Key_D:
             camera.keys.right = false;
+            break;
+        case Qt::Key::Key_Shift:
+            camera.movementSpeed = 10;
             break;
         }
     }
