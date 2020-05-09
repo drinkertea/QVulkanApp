@@ -18,12 +18,10 @@ layout (location = 1) in vec3 instancePos;
 layout (location = 2) in int instanceTexIndex;
 layout (location = 3) in int faceIndex;
 
-layout (binding = 0) uniform UBO 
+layout (std140, push_constant) uniform PushConsts 
 {
-    mat4 projection;
-    mat4 model;
-    vec4 viewPos;
-} ubo;
+	mat4 mvp;
+} pushConsts;
 
 layout (location = 0) out vec3 outUV;
 
@@ -89,7 +87,5 @@ void main()
         } break;
     }
 
-    vec3 worldPos = vec3(ubo.model * vec4(pos, 1.0));
-
-    gl_Position = ubo.projection * ubo.model * vec4(pos + instancePos, 1.0);
+    gl_Position = pushConsts.mvp * vec4(pos + instancePos, 1.0);
 }

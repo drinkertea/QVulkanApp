@@ -6,6 +6,7 @@ find_package(Qt5 COMPONENTS GUI REQUIRED)
 file(GLOB PublicHeaders
     include/IFactory.h
     include/IRenderer.h
+    include/ICamera.h
     include/DataProveder.h
 )
 source_group("Public" FILES ${PublicHeaders})
@@ -31,6 +32,7 @@ ADD_LIBRARY(VulkanRenderer STATIC
     private/Pipeline.cpp
     private/RenderPass.h
     private/RenderPass.cpp
+    private/Camera.cpp
 )
 
 target_include_directories(VulkanRenderer PRIVATE include)

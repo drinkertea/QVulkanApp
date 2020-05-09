@@ -111,7 +111,7 @@ public:
         index_buffer  = &factory->CreateIndexBuffer(Vulkan::BufferDataOwner<uint32_t>(indices));
 
         noiser = INoise::CreateNoise(331132, 0.5f);
-        int n = 16;
+        int n = 4;
         for (int i = -n; i < n; ++i)
         {
             for (int j = -n; j < n; ++j)
@@ -228,13 +228,15 @@ public:
     void Render()
     {
         {
+            auto pc = camera.matrices.perspective * camera.matrices.view;
+
             auto render_pass = factory->CreateRenderPass();
-            render_pass->Bind(*descriptor_set);
+            render_pass->Bind(*descriptor_set, pc.constData(), 16 * sizeof(float));
             render_pass->Bind(*pipeline);
             render_pass->Bind(*index_buffer, *vertex_buffer);
 
             Frustum frustum;
-            frustum.update(camera.matrices.perspective * camera.matrices.view);
+            frustum.update(pc);
 
             draw_cnt = 0;
             for (const auto& chunk : chunks)
