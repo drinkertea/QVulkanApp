@@ -1,6 +1,4 @@
 #include <QFile>
-#include <QVector2D>
-#include <QVulkanFunctions>
 
 #include <IRenderer.h>
 #include <IFactory.h>
@@ -10,9 +8,6 @@
 #include <Noise.h>
 #include <Chunk.h>
 #include <Texture.h>
-
-#include <iostream>
-#include <algorithm>
 
 #include "RenderInterface.h"
 

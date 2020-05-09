@@ -29,7 +29,6 @@ source_group("Shaders" FILES ${SHADERS})
 
 add_executable(QVulkanApp
     main.cpp
-    Camera.h
     RenderInterface.h
     RenderInterface.cpp
     TextureLoader.cpp
