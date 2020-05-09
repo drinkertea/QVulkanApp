@@ -26,9 +26,9 @@ public:
 
     ~Factory() override = default;
 
-    std::unique_ptr<IRenderPass> CreateRenderPass() const override
+    std::unique_ptr<IRenderPass> CreateRenderPass(ICamera& camera) const override
     {
-        return std::make_unique<RenderPass>(window);
+        return std::make_unique<RenderPass>(camera, window);
     }
 
     ITexture& CreateTexture(const IDataProvider& data) override

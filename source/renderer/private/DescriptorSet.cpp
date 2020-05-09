@@ -2,6 +2,7 @@
 #include "Texture.h"
 #include "Buffer.h"
 #include "Utils.h"
+#include "Camera.h"
 
 #include <QVulkanFunctions>
 #include <QVulkanWindow>
@@ -15,47 +16,65 @@ namespace Vulkan
         auto device = window.device();
         auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
 
-        std::vector<VkDescriptorType> binding_types(bindings.size());
-        std::vector<VkDescriptorImageInfo> textures(bindings.size());
-        std::vector<VkDescriptorBufferInfo> buffers(bindings.size());
-        std::vector<VkDescriptorPoolSize> pool_sizes(bindings.size());
-        std::vector<VkDescriptorSetLayoutBinding> binding_layouts(bindings.size());
-        std::vector<VkWriteDescriptorSet> write_descriptor_sets(bindings.size());
+        std::vector<VkDescriptorType> binding_types;
+        std::vector<VkDescriptorImageInfo> textures;
+        std::vector<VkDescriptorBufferInfo> buffers;
+        std::vector<VkDescriptorPoolSize> pool_sizes;
+        std::vector<VkDescriptorSetLayoutBinding> binding_layouts;
+        std::vector<VkWriteDescriptorSet> write_descriptor_sets;
 
-        for (uint32_t i = 0; i < bindings.size(); ++i)
+        textures.reserve(bindings.size());
+        buffers.reserve(bindings.size());
+
+        std::vector<VkPushConstantRange> push_constant_ranges{};
+
+        for (const auto& binding : bindings)
         {
-            const auto& binding = bindings[i];
+            VkDescriptorSetLayoutBinding layout{};
+            VkWriteDescriptorSet write_descriptor_set{};
             if (auto texture = dynamic_cast<const Texture*>(&binding.get()))
             {
-                binding_types[i] = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                textures[i] = texture->GetInfo();
-                binding_layouts[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-                write_descriptor_sets[i].pImageInfo = &textures[i];
-
+                binding_types.push_back(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+                textures.push_back(texture->GetInfo());
+                layout.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+                write_descriptor_set.pImageInfo = &textures.back();
             }
             else if (auto buffer = dynamic_cast<const UniformBuffer*>(&binding.get()))
             {
-                binding_types[i] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-                buffers[i] = buffer->GetInfo();
-                binding_layouts[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-                write_descriptor_sets[i].pBufferInfo = &buffers[i];
+                binding_types.push_back(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+                buffers.push_back(buffer->GetInfo());
+                layout.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+                write_descriptor_set.pBufferInfo = &buffers.back();
+            }
+            else if (auto pc = dynamic_cast<const PushConstantLayout*>(&binding.get()))
+            {
+                VkPushConstantRange push_constant_range{};
+                push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+                push_constant_range.offset = pc->GetOffset();
+                push_constant_range.size   = pc->GetSize();
+                push_constant_ranges.push_back(push_constant_range);
+                continue;
             }
             else
             {
                 throw std::logic_error("Wrong inout derived class");
             }
 
-            pool_sizes[i].type = binding_types[i];
-            pool_sizes[i].descriptorCount = 1;
+            VkDescriptorPoolSize pool_size{};
+            pool_size.type = binding_types.back();
+            pool_size.descriptorCount = 1;
+            pool_sizes.push_back(pool_size);
 
-            binding_layouts[i].descriptorCount = 1;
-            binding_layouts[i].descriptorType = binding_types[i];
-            binding_layouts[i].binding = i;
+            layout.descriptorCount = 1;
+            layout.descriptorType = binding_types.back();
+            layout.binding = static_cast<uint32_t>(binding_layouts.size());
+            binding_layouts.push_back(layout);
 
-            write_descriptor_sets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_descriptor_sets[i].descriptorCount = 1;
-            write_descriptor_sets[i].descriptorType = binding_types[i];
-            write_descriptor_sets[i].dstBinding = i;
+            write_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_descriptor_set.descriptorCount = 1;
+            write_descriptor_set.descriptorType = binding_types.back();
+            write_descriptor_set.dstBinding = static_cast<uint32_t>(write_descriptor_sets.size());
+            write_descriptor_sets.push_back(write_descriptor_set);
         }
 
         VkDescriptorPoolCreateInfo pool_info{};
@@ -73,17 +92,12 @@ namespace Vulkan
 
         Vulkan::VkResultSuccess(device_functions.vkCreateDescriptorSetLayout(device, &descriptor_set_layout_info, nullptr, &descriptor_set_layout));
 
-        VkPushConstantRange push_constant_range{};
-        push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-        push_constant_range.offset    = 0;
-        push_constant_range.size       = sizeof(float) * 16;
-
         VkPipelineLayoutCreateInfo pipeline_layout_info{};
         pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipeline_layout_info.setLayoutCount = 1;
         pipeline_layout_info.pSetLayouts = &descriptor_set_layout;
-        pipeline_layout_info.pushConstantRangeCount = 1;
-        pipeline_layout_info.pPushConstantRanges = &push_constant_range;
+        pipeline_layout_info.pushConstantRangeCount = static_cast<uint32_t>(push_constant_ranges.size());
+        pipeline_layout_info.pPushConstantRanges = push_constant_ranges.data();
 
         Vulkan::VkResultSuccess(device_functions.vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &pipeline_layout));
 
@@ -95,8 +109,8 @@ namespace Vulkan
 
         Vulkan::VkResultSuccess(device_functions.vkAllocateDescriptorSets(device, &descriptor_set_info, &descriptor_set));
 
-        for (uint32_t i = 0; i < bindings.size(); ++i)
-            write_descriptor_sets[i].dstSet = descriptor_set;
+        for (auto& wds : write_descriptor_sets)
+            wds.dstSet = descriptor_set;
 
         device_functions.vkUpdateDescriptorSets(device, static_cast<uint32_t>(write_descriptor_sets.size()), write_descriptor_sets.data(), 0, nullptr);
     }

@@ -6,13 +6,25 @@
 #include "Buffer.h"
 #include "DescriptorSet.h"
 #include "Pipeline.h"
+#include "Camera.h"
 
 namespace Vulkan
 {
 
-RenderPass::RenderPass(const QVulkanWindow& wnd)
-    : window(wnd)
+CameraRaii& GetCam(ICamera& camera)
 {
+    auto camera_raii = dynamic_cast<CameraRaii*>(&camera);
+    if (!camera_raii)
+        throw std::logic_error("Wrong camerra impl");
+
+    return *camera_raii;
+}
+
+RenderPass::RenderPass(ICamera& camera, const QVulkanWindow& wnd)
+    : window(wnd)
+    , camera_raii(GetCam(camera))
+{
+    camera_raii.BeforeRender();
     auto device = window.device();
     auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
 
@@ -58,26 +70,19 @@ RenderPass::RenderPass(const QVulkanWindow& wnd)
 RenderPass::~RenderPass()
 {
     window.vulkanInstance()->deviceFunctions(window.device())->vkCmdEndRenderPass(window.currentCommandBuffer());
+    camera_raii.AfterRender();
 }
 
-void RenderPass::Bind(const IDescriptorSet& desc_set, const void* pcdata, uint32_t size) const
+void RenderPass::Bind(const IDescriptorSet& desc_set) const
 {
     auto descriptor_set = dynamic_cast<const DescriptorSet*>(&desc_set);
     if (!descriptor_set)
         throw std::logic_error("Unknown descriptor set derived");
 
-    descriptor_set->Bind(*window.vulkanInstance()->deviceFunctions(window.device()), window.currentCommandBuffer());
-
     auto& dev_funcs = *window.vulkanInstance()->deviceFunctions(window.device());
-    dev_funcs.vkCmdPushConstants(
-        window.currentCommandBuffer(),
-        descriptor_set->GetPipelineLayout(),
-        VK_SHADER_STAGE_VERTEX_BIT,
-        0,
-        size,
-        pcdata
-    );
+    descriptor_set->Bind(dev_funcs, window.currentCommandBuffer());
 
+    camera_raii.Push(dev_funcs, window.currentCommandBuffer(), descriptor_set->GetPipelineLayout());
 }
 
 void RenderPass::Bind(const IPipeline& pip) const

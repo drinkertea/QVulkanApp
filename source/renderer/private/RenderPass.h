@@ -8,14 +8,17 @@ class QVulkanWindow;
 namespace Vulkan
 {
 
+struct ICamera;
+struct CameraRaii;
+
 class RenderPass
     : public IRenderPass
 {
 public:
-    RenderPass(const QVulkanWindow& wnd);
+    RenderPass(ICamera& camera, const QVulkanWindow& wnd);
     ~RenderPass() override;
 
-    void Bind(const IDescriptorSet&, const void*, uint32_t) const override;
+    void Bind(const IDescriptorSet&) const override;
     void Bind(const IPipeline&) const override;
     void Bind(const IIndexBuffer&, const IVertexBuffer&) const override;
     void Draw(const IIndexBuffer&, const IVertexBuffer&) const override;
@@ -23,6 +26,7 @@ public:
 
 private:
     const QVulkanWindow& window;
+    CameraRaii& camera_raii;
 
     mutable uint32_t current_index_count = 0;
 };

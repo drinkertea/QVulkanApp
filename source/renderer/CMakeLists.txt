@@ -32,6 +32,7 @@ ADD_LIBRARY(VulkanRenderer STATIC
     private/Pipeline.cpp
     private/RenderPass.h
     private/RenderPass.cpp
+    private/Camera.h
     private/Camera.cpp
 )
 

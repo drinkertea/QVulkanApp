@@ -9,6 +9,8 @@
 namespace Vulkan
 {
 
+struct ICamera;
+
 enum class ShaderType
 {
     vertex = 0,
@@ -30,7 +32,7 @@ using Shaders = std::vector<std::reference_wrapper<const IShader>>;
 
 struct IFactory
 {
-    virtual std::unique_ptr<IRenderPass> CreateRenderPass() const = 0;
+    virtual std::unique_ptr<IRenderPass> CreateRenderPass(ICamera& camera) const = 0;
 
     virtual ITexture& CreateTexture(const IDataProvider&) = 0;
     virtual IVertexBuffer& CreateVertexBuffer(const IDataProvider&, const Attributes&) = 0;
