@@ -53,6 +53,12 @@ struct IUniformBuffer
     virtual ~IUniformBuffer() = default;
 };
 
+struct IPushConstantLayout
+    : public IInputResource
+{
+    virtual ~IPushConstantLayout() = 0 {}
+};
+
 struct IDescriptorSet
 {
     virtual ~IDescriptorSet() = 0 {}
@@ -70,7 +76,7 @@ struct IPipeline
 
 struct IRenderPass
 {
-    virtual void Bind(const IDescriptorSet&, const void*, uint32_t) const = 0;
+    virtual void Bind(const IDescriptorSet&) const = 0;
     virtual void Bind(const IPipeline&) const = 0;
     virtual void Draw(const IIndexBuffer&, const IVertexBuffer&) const = 0;
     virtual void Bind(const IIndexBuffer&, const IVertexBuffer&) const = 0;
