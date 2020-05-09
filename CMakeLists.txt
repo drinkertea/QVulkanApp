@@ -4,9 +4,9 @@ set (CMAKE_PREFIX_PATH "C:\\Qt\\5.14.2\\msvc2017_64")
 
 project(QVulkanApp)
 
-set(CMAKE_AUTOMOC ON)
+#set(CMAKE_AUTOMOC ON)
+#set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
-set(CMAKE_AUTOUIC ON)
 
 find_package(Vulkan REQUIRED)
 find_package(Qt5 COMPONENTS GUI REQUIRED)

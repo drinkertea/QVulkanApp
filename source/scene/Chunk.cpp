@@ -49,7 +49,7 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
             int32_t y = noiser.GetHeight(x, z);
             cubes.emplace_back(CreateFace(x, y, z, CubeFace::top));
 
-            bbox.second.y = std::max(bbox.second.y, y);
+            bbox.second.y = std::max(bbox.second.y, y + 1);
             while (y >= 0)
             {
                 auto before = cubes.size();
