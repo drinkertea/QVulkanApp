@@ -25,7 +25,7 @@ public:
         float aspect = static_cast<float>(window.width()) / static_cast<float>(window.height());
         camera->SetPosition(0.0f, 80.0f, 0.0f);
         camera->SetRotation(-20.0f, 180.0f, 0.0f);
-        camera->SetPerspective(60.0f, aspect, 0.1f, 4096.0f);
+        camera->SetPerspective(60.0f, aspect, 0.1f, 2048.0f);
     }
 
     void initResources() override

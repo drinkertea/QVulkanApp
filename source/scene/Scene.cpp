@@ -12,6 +12,7 @@
 #include "Shader.h"
 
 #include <mutex>
+#include <map>
 
 namespace Scene
 {
@@ -37,6 +38,34 @@ static const std::vector<uint32_t> g_indices = {
 
 static const Vulkan::Attributes g_vertex_attribs = { Vulkan::AttributeFormat::vec1i };
 
+struct ChunkKey
+{
+    int32_t d = 0;
+    int32_t o = 0;
+
+    ChunkKey(const Point2D& mid, const Point2D& pos)
+    {
+        int32_t x = pos.x - mid.x;
+        int32_t y = pos.y - mid.y;
+        d = std::max(std::abs(x), std::abs(y));
+
+        if (x == d)
+            o = d - y;
+        else if (y == -d)
+            o = d * 2 + d - x;
+        else if (x == -d)
+            o = d * 4 + d + y;
+        else
+            o = d * 6 + d + x;
+    }
+
+    bool operator<(const ChunkKey& r) const
+    {
+        //return std::tie(d, x, y) < std::tie(r.d, r.x, r.y);
+        return std::tie(d, o) < std::tie(r.d, r.o);
+    }
+};
+
 class ChunkStorage
 {
     Vulkan::ICamera& camera;
@@ -44,11 +73,11 @@ class ChunkStorage
 
     std::unique_ptr<INoise> noiser;
 
-    static constexpr int32_t render_distance = 32;
+    static constexpr int32_t render_distance = 16;
 
     std::thread generator_thread;
     std::mutex chunks_mutex;
-    std::vector<std::unique_ptr<Chunk>> chunks;
+    std::map<ChunkKey, std::unique_ptr<Chunk>> chunks;
 
     TaskDeque creation_pool;
 
@@ -57,7 +86,7 @@ public:
     {
         auto chunk = std::make_unique<Chunk>(pos, factory, *noiser, creation_pool);
         std::lock_guard<std::mutex> lg(chunks_mutex);
-        chunks.emplace_back(std::move(chunk));
+        chunks.emplace(ChunkKey({0,0}, pos), std::move(chunk));
     }
 
     void GenerateProc()
@@ -67,15 +96,15 @@ public:
 
         for (int dist = 1; dist < render_distance; ++dist)
         {
-            for (int i = -dist; i < dist; ++i)
-                PushChunk({ mid.x - dist, mid.y + i });
-            for (int i = -dist; i < dist; ++i)
-                PushChunk({ mid.x + i, mid.y + dist });
 
             for (int i = dist; i > -dist; --i)
                 PushChunk({ mid.x + dist, mid.y + i });
             for (int i = dist; i > -dist; --i)
                 PushChunk({ mid.x + i, mid.y - dist });
+            for (int i = -dist; i < dist; ++i)
+                PushChunk({ mid.x - dist, mid.y + i });
+            for (int i = -dist; i < dist; ++i)
+                PushChunk({ mid.x + i, mid.y + dist });
         }
     }
 
@@ -103,7 +132,7 @@ public:
 
     const Vulkan::IInstanceBuffer& GetInstanceLayout()
     {
-        return chunks.front()->GetData();
+        return chunks.begin()->second->GetData();
     }
 
     void CreateGpuChunks()
@@ -116,10 +145,10 @@ public:
         std::lock_guard<std::mutex> lg(chunks_mutex);
         for (const auto& chunk : chunks)
         {
-            if (!*chunk)
+            if (!*chunk.second)
                 continue;
 
-            callback(*chunk);
+            callback(*chunk.second);
         }
     }
 };
@@ -167,9 +196,9 @@ public:
 
     void Render() override
     {
+        auto render_pass = factory->CreateRenderPass(camera);
         chunk_storage.CreateGpuChunks();
 
-        auto render_pass = factory->CreateRenderPass(camera);
         render_pass->Bind(descriptor_set);
         render_pass->Bind(pipeline);
         render_pass->Bind(index_buffer, vertex_buffer);
