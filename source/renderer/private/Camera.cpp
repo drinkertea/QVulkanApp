@@ -490,6 +490,11 @@ namespace Vulkan
             return mvp_layout;
         }
 
+        Vector3f GetViewPos() const override
+        {
+            return { camera.viewPos.x(), camera.viewPos.y(), camera.viewPos.z(), };
+        }
+
         virtual ~Camera() = default;
     };
 

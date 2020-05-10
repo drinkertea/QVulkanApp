@@ -1,7 +1,9 @@
 #pragma once
 
 #include <vector>
+#include <deque>
 #include <array>
+#include <mutex>
 
 namespace Vulkan
 {
@@ -46,16 +48,22 @@ struct CubeInstance
     CubeFace face;
 };
 
+using CreationPool = std::deque<std::function<void()>>;
+
 class Chunk
 {
     static constexpr int32_t size = 32;
 
 public:
-    Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser);
+    Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, CreationPool& pool);
 
     const Vulkan::IInstanceBuffer& GetData() const;
 
     const std::pair<Point3D, Point3D>& GetBBox() const;
+
+    operator bool() const { return !!buffer; }
+
+    static Point2D GetChunkBase(const Point2D& pos);
 
 private:
     Point2D base_point{};

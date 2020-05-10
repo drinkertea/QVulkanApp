@@ -36,6 +36,13 @@ struct BBox
     float max_z = 0.f;
 };
 
+struct Vector3f
+{
+    float x = 0.f;
+    float y = 0.f;
+    float z = 0.f;
+};
+
 struct ICamera
 {
     virtual void SetPosition(float x, float y, float z) = 0;
@@ -49,6 +56,7 @@ struct ICamera
 
     virtual bool ObjectVisible(const BBox& bbox) const = 0;
 
+    virtual Vector3f GetViewPos() const = 0;
     virtual const IPushConstantLayout& GetMvpLayout() const = 0;
     virtual const std::string& GetInfo() const = 0;
 

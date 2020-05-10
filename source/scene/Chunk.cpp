@@ -3,8 +3,6 @@
 
 #include <Noise.h>
 
-#include <array>
-
 #include "Chunk.h"
 #include "Texture.h"
 #include "IResourceLoader.h"
@@ -32,7 +30,7 @@ CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
     return cube;
 }
 
-Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
+Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, CreationPool& pool)
     : base_point(base)
 {
     bbox.first.x = base_point.x * size;
@@ -89,7 +87,13 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
     inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
     inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
 
-    buffer = factory.CreateInstanceBuffer(Vulkan::BufferDataOwner<CubeInstance>(cubes), inst_attribs);
+    pool.push_back(std::bind(
+        [this, &factory](const std::vector<CubeInstance>& cubes, const Vulkan::Attributes& inst_attribs) {
+            buffer = factory.CreateInstanceBuffer(Vulkan::BufferDataOwner<CubeInstance>(cubes), inst_attribs);
+        },
+        std::move(cubes),
+        std::move(inst_attribs)
+    ));
 }
 
 const Vulkan::IInstanceBuffer& Scene::Chunk::GetData() const
@@ -100,6 +104,11 @@ const Vulkan::IInstanceBuffer& Scene::Chunk::GetData() const
 const std::pair<Point3D, Point3D>& Chunk::GetBBox() const
 {
     return bbox;
+}
+
+Point2D Chunk::GetChunkBase(const Point2D& pos)
+{
+    return { pos.x / size, pos.y / size };
 }
 
 }
