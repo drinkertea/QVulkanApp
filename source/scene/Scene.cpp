@@ -44,13 +44,13 @@ class ChunkStorage
 
     std::unique_ptr<INoise> noiser;
 
-    static constexpr int32_t render_distance = 16;
+    static constexpr int32_t render_distance = 32;
 
     std::thread generator_thread;
     std::mutex chunks_mutex;
     std::vector<std::unique_ptr<Chunk>> chunks;
 
-    CreationPool creation_pool;
+    TaskDeque creation_pool;
 
 public:
     void PushChunk(const Point2D& pos)
@@ -108,12 +108,7 @@ public:
 
     void CreateGpuChunks()
     {
-        size_t size = creation_pool.size();
-        while (size--)
-        {
-            creation_pool.front()();
-            creation_pool.pop_front();
-        }
+        creation_pool.ExecuteAll();
     }
 
     void ForEach(const std::function<void(const Chunk&)>& callback)

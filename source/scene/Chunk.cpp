@@ -30,7 +30,7 @@ CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
     return cube;
 }
 
-Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, CreationPool& pool)
+Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, TaskDeque& pool)
     : base_point(base)
 {
     bbox.first.x = base_point.x * size;
@@ -87,7 +87,7 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, Cre
     inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
     inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
 
-    pool.push_back(std::bind(
+    pool.AddTask(std::bind(
         [this, &factory](const std::vector<CubeInstance>& cubes, const Vulkan::Attributes& inst_attribs) {
             buffer = factory.CreateInstanceBuffer(Vulkan::BufferDataOwner<CubeInstance>(cubes), inst_attribs);
         },
@@ -109,6 +109,20 @@ const std::pair<Point3D, Point3D>& Chunk::GetBBox() const
 Point2D Chunk::GetChunkBase(const Point2D& pos)
 {
     return { pos.x / size, pos.y / size };
+}
+
+void TaskDeque::AddTask(std::function<void()>&& task)
+{
+    std::lock_guard<std::mutex> lg(mutex);
+    tasks.push_back(std::move(task));
+}
+
+void TaskDeque::ExecuteAll()
+{
+    std::lock_guard<std::mutex> lg(mutex);
+    for (auto& task : tasks)
+        task();
+    tasks.clear();
 }
 
 }

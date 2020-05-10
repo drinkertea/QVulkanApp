@@ -48,14 +48,26 @@ struct CubeInstance
     CubeFace face;
 };
 
-using CreationPool = std::deque<std::function<void()>>;
+
+class TaskDeque
+{
+public:
+    void AddTask(std::function<void()>&& task);
+    void ExecuteAll();
+
+private:
+    using TaskPool = std::deque<std::function<void()>>;
+
+    TaskPool   tasks;
+    std::mutex mutex;
+};
 
 class Chunk
 {
     static constexpr int32_t size = 32;
 
 public:
-    Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, CreationPool& pool);
+    Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, TaskDeque& pool);
 
     const Vulkan::IInstanceBuffer& GetData() const;
 
