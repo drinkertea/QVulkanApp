@@ -1,7 +1,9 @@
-#include "DataProveder.h"
-#include "Texture.h"
-
+#include <DataProveder.h>
+#include <IFactory.h>
 #include <stdexcept>
+
+#include "include/IResourceLoader.h"
+#include "Texture.h"
 
 namespace Scene
 {
@@ -15,7 +17,7 @@ class TextureSource
     uint32_t depth  = 1u;
 
 public:
-    TextureSource(TextureType first, uint32_t count, const ITextureLoader& loader)
+    TextureSource(TextureType first, uint32_t count, const IResourceLoader& loader)
         : depth(count)
     {
         for (uint32_t i = 0; i < count; ++i)
@@ -57,7 +59,7 @@ public:
 };
 
 
-Texture::Texture(TextureType first, uint32_t count, const ITextureLoader& loader, Vulkan::IFactory& factory)
+Texture::Texture(TextureType first, uint32_t count, const IResourceLoader& loader, Vulkan::IFactory& factory)
     : texture(factory.CreateTexture(TextureSource(first, count, loader)))
     , offset(static_cast<uint32_t>(first))
 {

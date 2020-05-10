@@ -5,22 +5,13 @@
 
 namespace Scene
 {
-
-enum class ShaderTarget : uint32_t
-{
-    Block = 0,
-};
-
-struct IShaderLoader
-{
-    virtual std::vector<uint8_t> LoadShader(ShaderTarget target, Vulkan::ShaderType type) const = 0;
-    virtual ~IShaderLoader() = default;
-};
+enum class ShaderTarget : uint32_t;
+struct IResourceLoader;
 
 class Program
 {
 public:
-    Program(ShaderTarget target, const IShaderLoader& loader, Vulkan::IFactory& factory);
+    Program(ShaderTarget target, const IResourceLoader& loader, Vulkan::IFactory& factory);
     ~Program() = default;
 
     const Vulkan::Shaders& GetShaders() const;

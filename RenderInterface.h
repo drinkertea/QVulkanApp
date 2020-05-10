@@ -13,12 +13,3 @@ struct IVulkanRenderer
     
     ~IVulkanRenderer() override = default;
 };
-
-namespace Scene
-{
-struct ITextureLoader;
-struct IShaderLoader;
-}
-
-std::unique_ptr<Scene::ITextureLoader> CreateTextureLoader();
-std::unique_ptr<Scene::IShaderLoader> CreateShaderLoader();

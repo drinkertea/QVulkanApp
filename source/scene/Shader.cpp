@@ -1,10 +1,12 @@
 #include "DataProveder.h"
 #include "Shader.h"
 
+#include "include/IResourceLoader.h"
+
 namespace Scene
 {
 
-Program::Program(ShaderTarget target, const IShaderLoader& loader, Vulkan::IFactory& factory)
+Program::Program(ShaderTarget target, const IResourceLoader& loader, Vulkan::IFactory& factory)
 {
     switch (target)
     {

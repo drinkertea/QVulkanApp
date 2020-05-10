@@ -5,6 +5,7 @@
 
 #include "Chunk.h"
 #include "Texture.h"
+#include "include/IResourceLoader.h"
 
 namespace Scene
 {

@@ -43,11 +43,9 @@ add_subdirectory(source/noiser)
 add_subdirectory(source/scene)
 
 target_link_libraries(QVulkanApp VulkanRenderer)
-target_link_libraries(QVulkanApp NoiseGenerator)
 target_link_libraries(QVulkanApp Scene)
 target_include_directories(QVulkanApp PRIVATE source/renderer/include)
-target_include_directories(QVulkanApp PRIVATE source/noiser)
-target_include_directories(QVulkanApp PRIVATE source/scene)
+target_include_directories(QVulkanApp PRIVATE source/scene/include)
 
 target_compile_definitions(QVulkanApp PRIVATE VK_USE_PLATFORM_WIN32_KHR)
 target_include_directories(QVulkanApp PRIVATE Vulkan::Vulkan)
