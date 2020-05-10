@@ -34,11 +34,13 @@ struct IFactory
 {
     virtual std::unique_ptr<IRenderPass> CreateRenderPass(ICamera& camera) const = 0;
 
+    virtual std::unique_ptr<IInstanceBuffer> CreateInstanceBuffer(const IDataProvider&, const Attributes&) = 0;
+
     virtual ITexture& CreateTexture(const IDataProvider&) = 0;
     virtual IVertexBuffer& CreateVertexBuffer(const IDataProvider&, const Attributes&) = 0;
-    virtual IInstanceBuffer& CreateInstanceBuffer(const IDataProvider&, const Attributes&) = 0;
     virtual IIndexBuffer& CreateIndexBuffer(const IDataProvider&) = 0;
     virtual IUniformBuffer& CreateUniformBuffer(const IDataProvider&) = 0;
+
     virtual IShader& CreateShader(const IDataProvider&, ShaderType) = 0;
     virtual IDescriptorSet& CreateDescriptorSet(const InputResources&) = 0;
     virtual IPipeline& CreatePipeline(const IDescriptorSet&, const Shaders&, const IVertexBuffer&) = 0;

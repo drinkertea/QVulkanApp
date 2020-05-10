@@ -61,7 +61,7 @@ private:
     Point2D base_point{};
     std::pair<Point3D, Point3D> bbox;
 
-    Vulkan::IInstanceBuffer* buffer = nullptr;
+    std::unique_ptr<Vulkan::IInstanceBuffer> buffer;
 };
 
 }

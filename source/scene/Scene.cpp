@@ -38,14 +38,7 @@ static const Vulkan::Attributes g_vertex_attribs = { Vulkan::AttributeFormat::ve
 std::vector<Chunk> GetChunks(Vulkan::IFactory& factory, INoise& noiser)
 {
     std::vector<Chunk> chunks;
-    int n = 4;
-    for (int i = -n; i < n; ++i)
-    {
-        for (int j = -n; j < n; ++j)
-        {
-            chunks.emplace_back(Point2D{ i, j }, factory, noiser);
-        }
-    }
+    chunks.emplace_back(Point2D{ 0, 0 }, factory, noiser);
     return chunks;
 }
 

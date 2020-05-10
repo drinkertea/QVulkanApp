@@ -11,6 +11,7 @@
 #include "RenderPass.h"
 
 #include <deque>
+#include <set>
 
 namespace Vulkan
 {
@@ -43,10 +44,9 @@ public:
         return vertex_buffers.back();
     }
 
-    IInstanceBuffer& CreateInstanceBuffer(const IDataProvider& data, const Attributes& attribs) override
+    std::unique_ptr<IInstanceBuffer> CreateInstanceBuffer(const IDataProvider& data, const Attributes& attribs) override
     {
-        instance_buffers.emplace_back(data, attribs, window);
-        return instance_buffers.back();
+        return std::make_unique<InstanceBuffer>(data, attribs, window);
     }
 
     IIndexBuffer& CreateIndexBuffer(const IDataProvider& data) override
@@ -88,7 +88,6 @@ public:
 private:
     std::deque<Texture>        textures;
     std::deque<VertexBuffer>   vertex_buffers;
-    std::deque<InstanceBuffer> instance_buffers;
     std::deque<IndexBuffer>    index_buffers;
     std::deque<UniformBuffer>  uniform_buffers;
     std::deque<Shader>         shaders;

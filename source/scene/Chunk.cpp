@@ -89,7 +89,7 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser)
     inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
     inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
 
-    buffer = &factory.CreateInstanceBuffer(Vulkan::BufferDataOwner<CubeInstance>(cubes), inst_attribs);
+    buffer = factory.CreateInstanceBuffer(Vulkan::BufferDataOwner<CubeInstance>(cubes), inst_attribs);
 }
 
 const Vulkan::IInstanceBuffer& Scene::Chunk::GetData() const
