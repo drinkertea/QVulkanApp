@@ -1,3 +1,3 @@
-glslangvalidator -V texture.vert -o texture.vert.spv
-glslangvalidator -V texture.frag -o texture.frag.spv
+glslangvalidator -V block.vert -o block.vert.spv
+glslangvalidator -V block.frag -o block.frag.spv
 

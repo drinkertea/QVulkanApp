@@ -3,6 +3,8 @@ ADD_LIBRARY(Scene STATIC
     Chunk.cpp
     Texture.h
     Texture.cpp
+    Shader.h
+    Shader.cpp
 )
 
 target_include_directories(Scene PRIVATE ${PROJECT_SOURCE_DIR}/source/renderer/include)

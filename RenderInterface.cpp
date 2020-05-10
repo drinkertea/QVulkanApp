@@ -8,19 +8,9 @@
 #include <Noise.h>
 #include <Chunk.h>
 #include <Texture.h>
+#include <Shader.h>
 
 #include "RenderInterface.h"
-
-std::vector<uint8_t> GetShaderData(const QString& url)
-{
-    QFile file(url);
-    if (!file.open(QIODevice::ReadOnly))
-        throw std::runtime_error("Incalid path: " + url.toStdString());
-
-    QByteArray blob = file.readAll();
-    file.close();
-    return { blob.begin(), blob.end() };
-}
 
 class VulkanRenderer
     : public IVulkanRenderer
@@ -40,6 +30,7 @@ class VulkanRenderer
     std::unique_ptr<INoise> noiser;
 
     std::unique_ptr<Scene::Texture> textures;
+    std::unique_ptr<Scene::Program> program;
 
     int draw_cnt = 0;
 public:
@@ -96,6 +87,9 @@ public:
         auto texture_loader = CreateTextureLoader();
         textures = std::make_unique<Scene::Texture>(TextureType::First, Scene::texture_type_count, *texture_loader, *factory);
 
+        auto shader_loader = CreateShaderLoader();
+        program = std::make_unique<Scene::Program>(Scene::ShaderTarget::Block, *shader_loader, *factory);
+
         Vulkan::InputResources bindings = {
             camera->GetMvpLayout(),
             textures->GetTexture(),
@@ -103,11 +97,7 @@ public:
 
         descriptor_set = &factory->CreateDescriptorSet(bindings);
 
-        auto& vertex = factory->CreateShader(Vulkan::BufferDataOwner<uint8_t>(GetShaderData(":/texture.vert.spv")), Vulkan::ShaderType::vertex);
-        auto& fragment = factory->CreateShader(Vulkan::BufferDataOwner<uint8_t>(GetShaderData(":/texture.frag.spv")), Vulkan::ShaderType::fragment);
-        Vulkan::Shaders shaders = { vertex, fragment };
-
-        pipeline = &factory->CreatePipeline(*descriptor_set, shaders, *vertex_buffer, chunks.front().GetData());
+        pipeline = &factory->CreatePipeline(*descriptor_set, program->GetShaders(), *vertex_buffer, chunks.front().GetData());
     }
 
     void releaseResources() override

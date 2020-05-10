@@ -1,6 +1,8 @@
 #include <QImage>
+#include <QFile>
 
 #include "Texture.h"
+#include "Shader.h"
 
 using Scene::TextureType;
 
@@ -42,6 +44,7 @@ class TextureLoader
         }
     }
 
+public:
     void LoadTexture(TextureType type, uint32_t& w, uint32_t& h, std::vector<uint8_t>& storage) const override
     {
         auto url = GetTexturePath(type);
@@ -80,9 +83,58 @@ class TextureLoader
             mapped_data += row_pitch;
         }
     }
+
+    virtual ~TextureLoader() = default;
+};
+
+class ShaderLoader
+    : public Scene::IShaderLoader
+{
+    static std::string GetShaderName(Scene::ShaderTarget target)
+    {
+        switch (target)
+        {
+        case Scene::ShaderTarget::Block: return "block";
+        default: throw std::logic_error("Wron enum value");
+        }
+    }
+
+    static std::string GetShaderTypeName(Vulkan::ShaderType type)
+    {
+        switch (type)
+        {
+        case Vulkan::ShaderType::vertex:   return "vert";
+        case Vulkan::ShaderType::fragment: return "frag";
+        default: throw std::logic_error("Wron enum value");
+        }
+    }
+
+    static std::vector<uint8_t> GetShaderData(const QString& url)
+    {
+        QFile file(url);
+        if (!file.open(QIODevice::ReadOnly))
+            throw std::runtime_error("Incalid path: " + url.toStdString());
+
+        QByteArray blob = file.readAll();
+        file.close();
+        return { blob.begin(), blob.end() };
+    }
+
+public:
+    std::vector<uint8_t> LoadShader(Scene::ShaderTarget target, Vulkan::ShaderType type) const override
+    {
+        return GetShaderData((":/" + GetShaderName(target) + "." + GetShaderTypeName(type) + ".spv").c_str());
+    }
+
+    virtual ~ShaderLoader() = default;
 };
 
 std::unique_ptr<Scene::ITextureLoader> CreateTextureLoader()
 {
     return std::make_unique<TextureLoader>();
+}
+
+std::unique_ptr<Scene::IShaderLoader> CreateShaderLoader()
+{
+    return std::make_unique<ShaderLoader>();
 }
