@@ -1,7 +1,7 @@
-#include "DataProveder.h"
-#include "Shader.h"
+#include <DataProvider.h>
 
-#include "include/IResourceLoader.h"
+#include "IResourceLoader.h"
+#include "Shader.h"
 
 namespace Scene
 {

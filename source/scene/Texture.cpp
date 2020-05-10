@@ -1,8 +1,8 @@
-#include <DataProveder.h>
+#include <DataProvider.h>
 #include <IFactory.h>
 #include <stdexcept>
 
-#include "include/IResourceLoader.h"
+#include "IResourceLoader.h"
 #include "Texture.h"
 
 namespace Scene

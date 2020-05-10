@@ -1,9 +1,14 @@
 #pragma once
 
-#include "IFactory.h"
-
 #include <vector>
 #include <array>
+
+namespace Vulkan
+{
+
+struct IFactory;
+
+}
 
 struct INoise;
 

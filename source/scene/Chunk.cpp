@@ -1,11 +1,13 @@
+#include <DataProvider.h>
+#include <IFactory.h>
+
 #include <Noise.h>
-#include <DataProveder.h>
 
 #include <array>
 
 #include "Chunk.h"
 #include "Texture.h"
-#include "include/IResourceLoader.h"
+#include "IResourceLoader.h"
 
 namespace Scene
 {

@@ -1,13 +1,10 @@
 cmake_minimum_required(VERSION 3.1.0)
 
-find_package(Vulkan REQUIRED)
-find_package(Qt5 COMPONENTS GUI REQUIRED)
-
 file(GLOB PublicHeaders
     include/IFactory.h
     include/IRenderer.h
     include/ICamera.h
-    include/DataProveder.h
+    include/DataProvider.h
 )
 source_group("Public" FILES ${PublicHeaders})
 

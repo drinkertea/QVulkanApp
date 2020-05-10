@@ -1,11 +1,11 @@
 #include <IFactory.h>
 #include <ICamera.h>
-#include <DataProveder.h>
+#include <DataProvider.h>
 
 #include <Noise.h>
 
-#include "include/IScene.h"
-#include "include/IResourceLoader.h"
+#include "IScene.h"
+#include "IResourceLoader.h"
 
 #include "Chunk.h"
 #include "Texture.h"
