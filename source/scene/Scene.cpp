@@ -132,6 +132,7 @@ class ChunkStorage
     std::unique_ptr<INoise> noiser;
 
     static constexpr int32_t render_distance = 4;
+    static constexpr int32_t squere_len = render_distance * 2 + 1;
 
     using Chunks = std::map<ChunkKey, std::unique_ptr<Chunk>>;
     Chunks chunks;
@@ -141,12 +142,22 @@ class ChunkStorage
 
     ContiniousPool cpu_creation_pool;
 
+
+    std::array<std::array<size_t, squere_len>, squere_len> indicies = [&]() {
+        std::array<std::array<size_t, squere_len>, squere_len> res;
+        auto t = GetRenderScope({ 0,0 });
+        size_t i = 0;
+        for (const auto& x : t)
+            res[render_distance + x.x][render_distance + x.y] = i++;
+        return res;
+    }();
+
 public:
     static std::vector<Point2D> GetRenderScope(const Point2D& mid)
     {
         std::vector<Point2D> res;
         res.push_back(mid);
-        for (int dist = 1; dist < render_distance; ++dist)
+        for (int dist = 1; dist < render_distance + 1; ++dist)
         {
             for (int i = dist; i > -dist; --i)
                 res.push_back(Point2D{ mid.x + dist, mid.y + i });

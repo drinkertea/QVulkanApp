@@ -13,6 +13,8 @@ ADD_LIBRARY(Scene STATIC
     Shader.h
     Shader.cpp
     Scene.cpp
+    ChunkUtils.h
+    ChunkUtils.cpp
 )
 
 target_include_directories(Scene PRIVATE include)
