@@ -40,3 +40,5 @@ target_link_libraries(VulkanRenderer
     Vulkan::Vulkan
     Qt5::Gui
 )
+
+set_target_properties(VulkanRenderer PROPERTIES FOLDER Libraries)

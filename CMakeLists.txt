@@ -12,11 +12,14 @@ set (CMAKE_CXX_STANDARD 17)
 
 project(QVulkanApp)
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 find_package(Vulkan REQUIRED)
 find_package(Qt5 COMPONENTS GUI REQUIRED)
 
 include(cmake/googletest.cmake)
 
+set(CMAKE_FOLDER external)
 fetch_googletest(
     ${PROJECT_SOURCE_DIR}/cmake
     ${PROJECT_BINARY_DIR}/googletest

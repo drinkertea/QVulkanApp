@@ -15,3 +15,5 @@ target_include_directories(NoiseGenerator
     PRIVATE
         ${PROJECT_SOURCE_DIR}/external/FastNoise
 )
+
+set_target_properties(NoiseGenerator PROPERTIES FOLDER Libraries)

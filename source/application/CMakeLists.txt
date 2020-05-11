@@ -34,3 +34,5 @@ target_link_libraries(QVulkanApp
     Vulkan::Vulkan
     Qt5::Gui
 )
+
+set_target_properties(QVulkanApp PROPERTIES FOLDER Applications)

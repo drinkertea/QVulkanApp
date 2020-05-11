@@ -28,4 +28,6 @@ target_link_libraries(Scene
     NoiseGenerator
 )
 
+set_target_properties(Scene PROPERTIES FOLDER Libraries)
+
 add_subdirectory(tests)
