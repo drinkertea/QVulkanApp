@@ -41,14 +41,14 @@ static const std::vector<uint32_t> g_indices = {
 
 static const Vulkan::Attributes g_vertex_attribs = { Vulkan::AttributeFormat::vec1i };
 
-static const Point2D g_invalid_pos = { std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::min() };
+static const utils::vec2i g_invalid_pos = { std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::min() };
 
 struct ChunkKey
 {
     int32_t d = 0;
     int32_t o = 0;
 
-    ChunkKey(const Point2D& mid, const Point2D& pos)
+    ChunkKey(const utils::vec2i& mid, const utils::vec2i& pos)
     {
         int32_t x = pos.x - mid.x;
         int32_t y = pos.y - mid.y;
@@ -138,7 +138,7 @@ class ChunkStorage
     Chunks chunks;
     std::mutex chunks_mutex;
 
-    Point2D current_chunk = g_invalid_pos;
+    utils::vec2i current_chunk = g_invalid_pos;
 
     ContiniousPool cpu_creation_pool;
 
@@ -153,25 +153,25 @@ class ChunkStorage
     }();
 
 public:
-    static std::vector<Point2D> GetRenderScope(const Point2D& mid)
+    static std::vector<utils::vec2i> GetRenderScope(const utils::vec2i& mid)
     {
-        std::vector<Point2D> res;
+        std::vector<utils::vec2i> res;
         res.push_back(mid);
         for (int dist = 1; dist < render_distance + 1; ++dist)
         {
             for (int i = dist; i > -dist; --i)
-                res.push_back(Point2D{ mid.x + dist, mid.y + i });
+                res.push_back(utils::vec2i{ mid.x + dist, mid.y + i });
             for (int i = dist; i > -dist; --i)
-                res.push_back(Point2D{ mid.x + i, mid.y - dist });
+                res.push_back(utils::vec2i{ mid.x + i, mid.y - dist });
             for (int i = -dist; i < dist; ++i)
-                res.push_back(Point2D{ mid.x - dist, mid.y + i });
+                res.push_back(utils::vec2i{ mid.x - dist, mid.y + i });
             for (int i = -dist; i < dist; ++i)
-                res.push_back(Point2D{ mid.x + i, mid.y + dist });
+                res.push_back(utils::vec2i{ mid.x + i, mid.y + dist });
         }
         return res;
     }
 
-    Point2D GetCamPos() const
+    utils::vec2i GetCamPos() const
     {
         auto pos = camera.GetViewPos();
         return Chunk::GetChunkBase({ static_cast<int32_t>(pos.x), static_cast<int32_t>(pos.z) });
@@ -201,14 +201,14 @@ public:
         if (cam_chunk == current_chunk)
             return;
 
-        Point2D translation = { cam_chunk.x - current_chunk.x, cam_chunk.y - current_chunk.y };
+        utils::vec2i translation = { cam_chunk.x - current_chunk.x, cam_chunk.y - current_chunk.y };
         current_chunk = cam_chunk;
         auto to_render = GetRenderScope(current_chunk);
 
         for (const auto& pos : to_render)
         {
             ChunkKey key(current_chunk, pos);
-            cpu_creation_pool.AddTask(key, std::bind([this](const ChunkKey& key, const Point2D& pos) {
+            cpu_creation_pool.AddTask(key, std::bind([this](const ChunkKey& key, const utils::vec2i& pos) {
                 auto chunk = std::make_unique<Chunk>(pos, factory, *noiser, gpu_creation_pool);
                 std::lock_guard<std::mutex> lg(chunks_mutex);
                 chunks[key].swap(chunk);

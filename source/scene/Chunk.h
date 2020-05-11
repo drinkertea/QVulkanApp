@@ -5,6 +5,8 @@
 #include <array>
 #include <mutex>
 
+#include "ChunkUtils.h"
+
 namespace Vulkan
 {
 
@@ -16,27 +18,6 @@ struct INoise;
 
 namespace Scene
 {
-
-struct Point2D
-{
-    int32_t x = 0;
-    int32_t y = 0;
-
-    bool operator<(const Point2D& r) const
-    {
-        return std::tie(x, y) < std::tie(r.x, r.y);
-    }
-
-    bool operator==(const Point2D& r) const
-    {
-        return std::tie(x, y) == std::tie(r.x, r.y);
-    }
-
-    bool operator!=(const Point2D& r) const
-    {
-        return !(*this == r);
-    }
-};
 
 struct Point3D
 {
@@ -85,7 +66,7 @@ class Chunk
     static constexpr int32_t size = 32;
 
 public:
-    Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, TaskQueue& pool);
+    Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser, TaskQueue& pool);
     ~Chunk();
 
     const Vulkan::IInstanceBuffer& GetData() const;
@@ -94,12 +75,12 @@ public:
 
     operator bool() const { return !!buffer; }
 
-    const Point2D& GetBase() const { return base_point; }
+    const utils::vec2i& GetBase() const { return base_point; }
 
-    static Point2D GetChunkBase(const Point2D& pos);
+    static utils::vec2i GetChunkBase(const utils::vec2i& pos);
 
 private:
-    Point2D base_point{};
+    utils::vec2i base_point{};
     std::pair<Point3D, Point3D> bbox;
 
     TaskQueue& task_queue;

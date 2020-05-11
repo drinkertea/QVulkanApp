@@ -5,13 +5,16 @@
 namespace Scene
 {
 
+namespace utils
+{
+
 template <typename T>
 struct vec2
 {
-    T x{};
-    T y{};
+    T x;
+    T y;
 
-    vec2(T&& x, T&& y)
+    vec2(T&& x = {}, T&& y = {})
         : x(std::forward<T>(x))
         , y(std::forward<T>(y))
     {
@@ -45,11 +48,8 @@ struct vec2
 
 using vec2i = vec2<int32_t>;
 
-struct IChunkStorage
-{
 
 
-    virtual ~IChunkStorage() = default;
-};
+}
 
 }

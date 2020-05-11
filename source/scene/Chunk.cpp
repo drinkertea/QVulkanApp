@@ -30,7 +30,7 @@ CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
     return cube;
 }
 
-Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, TaskQueue& pool)
+Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser, TaskQueue& pool)
     : base_point(base)
     , task_queue(pool)
 {
@@ -117,7 +117,7 @@ const std::pair<Point3D, Point3D>& Chunk::GetBBox() const
     return bbox;
 }
 
-Point2D Chunk::GetChunkBase(const Point2D& pos)
+utils::vec2i Chunk::GetChunkBase(const utils::vec2i& pos)
 {
     return { pos.x / size, pos.y / size };
 }

@@ -2,7 +2,7 @@
 
 #include "ChunkUtils.h"
 
-using Scene::vec2i;
+using Scene::utils::vec2i;
 
 TEST(ChunkUtilsTests, add)
 {
