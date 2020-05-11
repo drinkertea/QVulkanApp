@@ -13,6 +13,9 @@
 
 #include <mutex>
 #include <map>
+#include <set>
+#include <atomic>
+#include <condition_variable>
 
 namespace Scene
 {
@@ -38,6 +41,8 @@ static const std::vector<uint32_t> g_indices = {
 
 static const Vulkan::Attributes g_vertex_attribs = { Vulkan::AttributeFormat::vec1i };
 
+static const Point2D g_invalid_pos = { std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::min() };
+
 struct ChunkKey
 {
     int32_t d = 0;
@@ -52,17 +57,69 @@ struct ChunkKey
         if (x == d)
             o = d - y;
         else if (y == -d)
-            o = d * 2 + d - x;
+            o = d * 3 - x;
         else if (x == -d)
-            o = d * 4 + d + y;
+            o = d * 5 + y;
         else
-            o = d * 6 + d + x;
+            o = d * 7 + x;
     }
 
     bool operator<(const ChunkKey& r) const
     {
-        //return std::tie(d, x, y) < std::tie(r.d, r.x, r.y);
         return std::tie(d, o) < std::tie(r.d, r.o);
+    }
+};
+
+class ContiniousPool
+{
+    std::thread worker;
+    std::atomic_bool terminated = false;
+    std::atomic_bool want_add = false;
+
+    std::map<ChunkKey, std::function<void()>> pool;
+    std::mutex pool_mutex;
+    std::condition_variable add_cv;
+
+    void ExecutionThread()
+    {
+        std::unique_lock<std::mutex> lg(pool_mutex);
+        while (!terminated)
+        {
+            while (want_add)
+                add_cv.wait(lg);
+
+            if (pool.empty())
+            {
+                std::this_thread::sleep_for(std::chrono::microseconds(25u));
+                continue;
+            }
+
+            auto task = pool.begin();
+            task->second();
+            pool.erase(task);
+        }
+    }
+
+public:
+    ContiniousPool()
+        : worker(&ContiniousPool::ExecutionThread, this)
+    {
+    }
+
+    void AddTask(const ChunkKey& key, std::function<void()>&& task)
+    {
+        want_add = true;
+        std::lock_guard<std::mutex> lg(pool_mutex);
+        pool[key].swap(std::move(task));
+        want_add = false;
+        add_cv.notify_all();
+    }
+
+    ~ContiniousPool()
+    {
+        terminated = true;
+        while (!worker.joinable());
+        worker.join();
     }
 };
 
@@ -70,74 +127,87 @@ class ChunkStorage
 {
     Vulkan::ICamera& camera;
     Vulkan::IFactory& factory;
+    TaskQueue gpu_creation_pool;
 
     std::unique_ptr<INoise> noiser;
 
-    static constexpr int32_t render_distance = 16;
+    static constexpr int32_t render_distance = 4;
 
-    std::thread generator_thread;
+    using Chunks = std::map<ChunkKey, std::unique_ptr<Chunk>>;
+    Chunks chunks;
     std::mutex chunks_mutex;
-    std::map<ChunkKey, std::unique_ptr<Chunk>> chunks;
 
-    TaskDeque creation_pool;
+    Point2D current_chunk = g_invalid_pos;
+
+    ContiniousPool cpu_creation_pool;
 
 public:
-    void PushChunk(const Point2D& pos)
+    static std::vector<Point2D> GetRenderScope(const Point2D& mid)
     {
-        auto chunk = std::make_unique<Chunk>(pos, factory, *noiser, creation_pool);
-        std::lock_guard<std::mutex> lg(chunks_mutex);
-        chunks.emplace(ChunkKey({0,0}, pos), std::move(chunk));
-    }
-
-    void GenerateProc()
-    {
-        auto mid = GetCamPos();
-        while (chunks.empty());
-
+        std::vector<Point2D> res;
+        res.push_back(mid);
         for (int dist = 1; dist < render_distance; ++dist)
         {
-
             for (int i = dist; i > -dist; --i)
-                PushChunk({ mid.x + dist, mid.y + i });
+                res.push_back(Point2D{ mid.x + dist, mid.y + i });
             for (int i = dist; i > -dist; --i)
-                PushChunk({ mid.x + i, mid.y - dist });
+                res.push_back(Point2D{ mid.x + i, mid.y - dist });
             for (int i = -dist; i < dist; ++i)
-                PushChunk({ mid.x - dist, mid.y + i });
+                res.push_back(Point2D{ mid.x - dist, mid.y + i });
             for (int i = -dist; i < dist; ++i)
-                PushChunk({ mid.x + i, mid.y + dist });
+                res.push_back(Point2D{ mid.x + i, mid.y + dist });
         }
+        return res;
     }
 
     Point2D GetCamPos() const
     {
         auto pos = camera.GetViewPos();
-        return { static_cast<int32_t>(pos.x), static_cast<int32_t>(pos.z) };
+        return Chunk::GetChunkBase({ static_cast<int32_t>(pos.x), static_cast<int32_t>(pos.z) });
     }
 
     ChunkStorage(Vulkan::ICamera& camera, Vulkan::IFactory& factory)
         : camera(camera)
         , factory(factory)
         , noiser(INoise::CreateNoise(213312, 0.5f))
-        , generator_thread(&ChunkStorage::GenerateProc, this)
     {
-        PushChunk(GetCamPos());
-        CreateGpuChunks();
-    }
-
-    ~ChunkStorage()
-    {
-        if (generator_thread.joinable())
-            generator_thread.join();
+        AddCpuTasks();
+        while (chunks.empty())
+            std::this_thread::sleep_for(std::chrono::microseconds(1u));
+        RenderBegin();
     }
 
     const Vulkan::IInstanceBuffer& GetInstanceLayout()
     {
+        while (chunks.empty() || !*chunks.begin()->second)
+            std::this_thread::sleep_for(std::chrono::microseconds(1u));
         return chunks.begin()->second->GetData();
     }
 
-    void CreateGpuChunks()
+    void AddCpuTasks()
     {
-        creation_pool.ExecuteAll();
+        auto cam_chunk = GetCamPos();
+        if (cam_chunk == current_chunk)
+            return;
+
+        Point2D translation = { cam_chunk.x - current_chunk.x, cam_chunk.y - current_chunk.y };
+        current_chunk = cam_chunk;
+        auto to_render = GetRenderScope(current_chunk);
+
+        for (const auto& pos : to_render)
+        {
+            ChunkKey key(current_chunk, pos);
+            cpu_creation_pool.AddTask(key, std::bind([this](const ChunkKey& key, const Point2D& pos) {
+                auto chunk = std::make_unique<Chunk>(pos, factory, *noiser, gpu_creation_pool);
+                std::lock_guard<std::mutex> lg(chunks_mutex);
+                chunks[key].swap(chunk);
+            }, key, pos));
+        }
+    }
+
+    void RenderBegin()
+    {
+        gpu_creation_pool.ExecuteAll();
     }
 
     void ForEach(const std::function<void(const Chunk&)>& callback)
@@ -196,8 +266,9 @@ public:
 
     void Render() override
     {
+        chunk_storage.AddCpuTasks();
+        chunk_storage.RenderBegin();
         auto render_pass = factory->CreateRenderPass(camera);
-        chunk_storage.CreateGpuChunks();
 
         render_pass->Bind(descriptor_set);
         render_pass->Bind(pipeline);
