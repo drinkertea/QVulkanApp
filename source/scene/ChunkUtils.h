@@ -14,9 +14,9 @@ struct vec2
     T x;
     T y;
 
-    vec2(T&& x = {}, T&& y = {})
-        : x(std::forward<T>(x))
-        , y(std::forward<T>(y))
+    vec2(T x = {}, T y = {})
+        : x(x)
+        , y(y)
     {
     }
 
@@ -48,7 +48,7 @@ struct vec2
 
 using vec2i = vec2<int32_t>;
 
-
+uint32_t GetRank(const vec2i& mid, const vec2i& pos);
 
 }
 

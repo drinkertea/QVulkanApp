@@ -145,10 +145,14 @@ class ChunkStorage
 
     std::array<std::array<size_t, squere_len>, squere_len> indicies = [&]() {
         std::array<std::array<size_t, squere_len>, squere_len> res;
+        std::array<std::array<size_t, squere_len>, squere_len> res1;
         auto t = GetRenderScope({ 0,0 });
         size_t i = 0;
         for (const auto& x : t)
+        {
             res[render_distance + x.x][render_distance + x.y] = i++;
+            res1[render_distance + x.x][render_distance + x.y] = utils::GetRank({}, x);
+        }
         return res;
     }();
 
