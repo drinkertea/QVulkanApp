@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include <deque>
+#include <map>
 #include <array>
 #include <mutex>
 
@@ -21,6 +21,21 @@ struct Point2D
 {
     int32_t x = 0;
     int32_t y = 0;
+
+    bool operator<(const Point2D& r) const
+    {
+        return std::tie(x, y) < std::tie(r.x, r.y);
+    }
+
+    bool operator==(const Point2D& r) const
+    {
+        return std::tie(x, y) == std::tie(r.x, r.y);
+    }
+
+    bool operator!=(const Point2D& r) const
+    {
+        return !(*this == r);
+    }
 };
 
 struct Point3D
@@ -49,15 +64,18 @@ struct CubeInstance
 };
 
 
-class TaskDeque
+class TaskQueue
 {
 public:
-    void AddTask(std::function<void()>&& task);
+    uint64_t AddTask(std::function<void()>&& task);
+    void DelTask(uint64_t);
     void ExecuteAll();
+    ~TaskQueue();
 
 private:
-    using TaskPool = std::deque<std::function<void()>>;
+    using TaskPool = std::map<uint64_t, std::function<void()>>;
 
+    uint64_t   curr_task_id = 0;
     TaskPool   tasks;
     std::mutex mutex;
 };
@@ -67,7 +85,8 @@ class Chunk
     static constexpr int32_t size = 32;
 
 public:
-    Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, TaskDeque& pool);
+    Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, TaskQueue& pool);
+    ~Chunk();
 
     const Vulkan::IInstanceBuffer& GetData() const;
 
@@ -75,11 +94,16 @@ public:
 
     operator bool() const { return !!buffer; }
 
+    const Point2D& GetBase() const { return base_point; }
+
     static Point2D GetChunkBase(const Point2D& pos);
 
 private:
     Point2D base_point{};
     std::pair<Point3D, Point3D> bbox;
+
+    TaskQueue& task_queue;
+    uint64_t create_task_id;
 
     std::unique_ptr<Vulkan::IInstanceBuffer> buffer;
 };

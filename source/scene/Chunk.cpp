@@ -30,8 +30,9 @@ CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
     return cube;
 }
 
-Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, TaskDeque& pool)
+Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, TaskQueue& pool)
     : base_point(base)
+    , task_queue(pool)
 {
     bbox.first.x = base_point.x * size;
     bbox.first.z = base_point.y * size;
@@ -87,13 +88,23 @@ Chunk::Chunk(const Point2D& base, Vulkan::IFactory& factory, INoise& noiser, Tas
     inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
     inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
 
-    pool.AddTask(std::bind(
+    create_task_id = task_queue.AddTask(std::bind(
         [this, &factory](const std::vector<CubeInstance>& cubes, const Vulkan::Attributes& inst_attribs) {
             buffer = factory.CreateInstanceBuffer(Vulkan::BufferDataOwner<CubeInstance>(cubes), inst_attribs);
         },
         std::move(cubes),
         std::move(inst_attribs)
     ));
+}
+
+Chunk::~Chunk()
+{
+    if (!buffer)
+        task_queue.DelTask(create_task_id);
+
+    task_queue.AddTask([bp = buffer.release()]() {
+        delete bp;
+    });
 }
 
 const Vulkan::IInstanceBuffer& Scene::Chunk::GetData() const
@@ -111,18 +122,30 @@ Point2D Chunk::GetChunkBase(const Point2D& pos)
     return { pos.x / size, pos.y / size };
 }
 
-void TaskDeque::AddTask(std::function<void()>&& task)
+uint64_t TaskQueue::AddTask(std::function<void()>&& task)
 {
     std::lock_guard<std::mutex> lg(mutex);
-    tasks.push_back(std::move(task));
+    tasks[curr_task_id++].swap(std::move(task));
+    return curr_task_id - 1u;
 }
 
-void TaskDeque::ExecuteAll()
+void TaskQueue::DelTask(uint64_t id)
+{
+    std::lock_guard<std::mutex> lg(mutex);
+    tasks.erase(id);
+}
+
+void TaskQueue::ExecuteAll()
 {
     std::lock_guard<std::mutex> lg(mutex);
     for (auto& task : tasks)
-        task();
+        task.second();
     tasks.clear();
+}
+
+TaskQueue::~TaskQueue()
+{
+    ExecuteAll();
 }
 
 }
