@@ -1,26 +1,29 @@
-file(GLOB PublicHeaders
-    include/IScene.h
-    include/IResourceLoader.h
+ADD_LIBRARY(Scene STATIC)
+
+file(GLOB PublicHeaders "${CMAKE_CURRENT_LIST_DIR}/include/*.h")
+
+target_sources(Scene
+    PUBLIC
+        ${PublicHeaders}
+    PRIVATE
+        Chunk.h
+        Chunk.cpp
+        Texture.h
+        Texture.cpp
+        Shader.h
+        Shader.cpp
+        Scene.cpp
+        ChunkUtils.h
+        ChunkUtils.cpp
+)
+
+target_include_directories(Scene
+    PUBLIC
+        ${CMAKE_CURRENT_LIST_DIR}/include
 )
 source_group("Public" FILES ${PublicHeaders})
 
-ADD_LIBRARY(Scene STATIC
-    ${PublicHeaders}
-    Chunk.h
-    Chunk.cpp
-    Texture.h
-    Texture.cpp
-    Shader.h
-    Shader.cpp
-    Scene.cpp
-    ChunkUtils.h
-    ChunkUtils.cpp
+target_link_libraries(Scene
+    VulkanRenderer
+    NoiseGenerator
 )
-
-target_include_directories(Scene PRIVATE include)
-
-target_link_libraries(Scene VulkanRenderer)
-target_include_directories(Scene PRIVATE ${PROJECT_SOURCE_DIR}/source/renderer/include)
-
-target_link_libraries(Scene NoiseGenerator)
-target_include_directories(Scene PRIVATE ${PROJECT_SOURCE_DIR}/source/noiser)

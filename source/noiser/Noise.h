@@ -10,4 +10,3 @@ struct INoise
 
     static std::unique_ptr<INoise> CreateNoise(uint32_t seed, float amplitude);
 };
-

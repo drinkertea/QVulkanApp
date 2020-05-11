@@ -1,4 +1,4 @@
-#include "FastNoise.h"
+#include <FastNoise.h>
 #include "Noise.h"
 
 class Noise
@@ -46,4 +46,3 @@ std::unique_ptr<INoise> INoise::CreateNoise(uint32_t seed, float amplitude)
 {
     return std::make_unique<Noise>(seed, amplitude);
 }
-
