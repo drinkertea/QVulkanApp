@@ -27,3 +27,5 @@ target_link_libraries(Scene
     VulkanRenderer
     NoiseGenerator
 )
+
+add_subdirectory(tests)
