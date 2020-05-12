@@ -2,6 +2,7 @@
 #include <tuple>
 #include <cstdint>
 #include <vector>
+#include <functional>
 
 namespace Scene
 {
@@ -50,6 +51,8 @@ struct vec2
 using vec2i = vec2<int32_t>;
 
 uint32_t GetRank(const vec2i& mid, const vec2i& pos);
+
+void IterateFromMid(int distance, const utils::vec2i& mid, const std::function<void(int, const utils::vec2i&)>& callback);
 
 template <typename T>
 void ShiftPlane(const vec2i& translation, std::vector<std::vector<T>>& plane)

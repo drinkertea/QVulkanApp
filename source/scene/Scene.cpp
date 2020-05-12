@@ -75,8 +75,10 @@ class ContiniousPool
     std::thread worker;
     std::atomic_bool terminated = false;
     std::atomic_bool want_add = false;
+    std::atomic_bool paused = false;
+    std::atomic_bool progress = false;
 
-    std::map<ChunkKey, std::function<void()>> pool;
+    std::map<int, std::function<void()>> pool;
     std::mutex pool_mutex;
     std::condition_variable add_cv;
 
@@ -88,15 +90,18 @@ class ContiniousPool
             while (want_add)
                 add_cv.wait(lg);
 
-            if (pool.empty())
+            if (pool.empty() || paused)
             {
                 std::this_thread::sleep_for(std::chrono::microseconds(25u));
                 continue;
             }
 
-            auto task = pool.begin();
-            task->second();
-            pool.erase(task);
+            progress = true;
+            std::function<void()> t;
+            t.swap(pool.begin()->second);
+            pool.erase(pool.begin());
+            t();
+            progress = false;
         }
     }
 
@@ -106,7 +111,18 @@ public:
     {
     }
 
-    void AddTask(const ChunkKey& key, std::function<void()>&& task)
+    void Pause()
+    {
+        paused = true;
+        while (progress);
+    }
+
+    void Resume()
+    {
+        paused = false;
+    }
+
+    void AddTask(const int& key, std::function<void()>&& task)
     {
         want_add = true;
         std::lock_guard<std::mutex> lg(pool_mutex);
@@ -134,7 +150,7 @@ class ChunkStorage
     static constexpr int32_t render_distance = 4;
     static constexpr int32_t squere_len = render_distance * 2 + 1;
 
-    using Chunks = std::map<ChunkKey, std::unique_ptr<Chunk>>;
+    using Chunks = std::vector<std::vector<std::unique_ptr<Chunk>>>;
     Chunks chunks;
     std::mutex chunks_mutex;
 
@@ -142,19 +158,10 @@ class ChunkStorage
 
     ContiniousPool cpu_creation_pool;
 
-
-    std::array<std::array<size_t, squere_len>, squere_len> indicies = [&]() {
-        std::array<std::array<size_t, squere_len>, squere_len> res;
-        std::array<std::array<size_t, squere_len>, squere_len> res1;
-        auto t = GetRenderScope({ 0,0 });
-        size_t i = 0;
-        for (const auto& x : t)
-        {
-            res[render_distance + x.x][render_distance + x.y] = i++;
-            res1[render_distance + x.x][render_distance + x.y] = utils::GetRank({}, x);
-        }
-        return res;
-    }();
+    std::unique_ptr<Chunk>& GetChunk(const utils::vec2i& mid, const utils::vec2i& pos)
+    {
+        return chunks[render_distance + pos.x - mid.x][render_distance + pos.y - mid.y];
+    }
 
 public:
     static std::vector<utils::vec2i> GetRenderScope(const utils::vec2i& mid)
@@ -186,17 +193,23 @@ public:
         , factory(factory)
         , noiser(INoise::CreateNoise(213312, 0.5f))
     {
+        chunks.resize(squere_len);
+        for (auto& x : chunks)
+            x.resize(squere_len);
+
         AddCpuTasks();
-        while (chunks.empty())
+        const auto& chunk = GetChunk(current_chunk, current_chunk);
+        while (!chunk)
             std::this_thread::sleep_for(std::chrono::microseconds(1u));
         RenderBegin();
     }
 
     const Vulkan::IInstanceBuffer& GetInstanceLayout()
     {
-        while (chunks.empty() || !*chunks.begin()->second)
+        const auto& chunk = GetChunk(current_chunk, current_chunk);
+        while (!chunk || !*chunk)
             std::this_thread::sleep_for(std::chrono::microseconds(1u));
-        return chunks.begin()->second->GetData();
+        return chunk->GetData();
     }
 
     void AddCpuTasks()
@@ -205,19 +218,37 @@ public:
         if (cam_chunk == current_chunk)
             return;
 
-        utils::vec2i translation = { cam_chunk.x - current_chunk.x, cam_chunk.y - current_chunk.y };
-        current_chunk = cam_chunk;
-        auto to_render = GetRenderScope(current_chunk);
+        utils::vec2i translation = cam_chunk - current_chunk;
 
-        for (const auto& pos : to_render)
+        cpu_creation_pool.Pause();
+
+        std::lock_guard<std::mutex> lg(chunks_mutex);
+
+        if (current_chunk != g_invalid_pos && translation != utils::vec2i(0, 0))
         {
-            ChunkKey key(current_chunk, pos);
-            cpu_creation_pool.AddTask(key, std::bind([this](const ChunkKey& key, const utils::vec2i& pos) {
+            utils::ShiftPlane(translation, chunks);
+        }
+
+        current_chunk = cam_chunk;
+        utils::IterateFromMid(render_distance, current_chunk, [&](int index, const utils::vec2i& pos) {
+            const auto& chunk = GetChunk(current_chunk, pos);
+            if (chunk)
+            {
+                return;
+            }
+
+            cpu_creation_pool.AddTask(index, std::bind([this](const utils::vec2i& mid, const utils::vec2i& pos) {
+                if (mid != current_chunk)
+                    return;
                 auto chunk = std::make_unique<Chunk>(pos, factory, *noiser, gpu_creation_pool);
                 std::lock_guard<std::mutex> lg(chunks_mutex);
-                chunks[key].swap(chunk);
-            }, key, pos));
-        }
+                if (mid != current_chunk)
+                    return;
+                GetChunk(current_chunk, pos).swap(chunk);
+            }, current_chunk, pos));
+        });
+
+        cpu_creation_pool.Resume();
     }
 
     void RenderBegin()
@@ -228,13 +259,13 @@ public:
     void ForEach(const std::function<void(const Chunk&)>& callback)
     {
         std::lock_guard<std::mutex> lg(chunks_mutex);
-        for (const auto& chunk : chunks)
-        {
-            if (!*chunk.second)
-                continue;
+        utils::IterateFromMid(render_distance, current_chunk, [&](int index, const utils::vec2i& pos) {
+            const auto& chunk = GetChunk(current_chunk, pos);
+            if (!chunk || !*chunk)
+                return;
 
-            callback(*chunk.second);
-        }
+            callback(*chunk);
+        });
     }
 };
 
@@ -273,11 +304,10 @@ public:
         , descriptor_set(factory->CreateDescriptorSet(Vulkan::InputResources{ camera.GetMvpLayout(), textures.GetTexture() }))
         , pipeline(factory->CreatePipeline(descriptor_set, program.GetShaders(), vertex_buffer, chunk_storage.GetInstanceLayout()))
     {
-        camera.SetPosition(0.0f, 80.0f, 0.0f);
-        camera.SetRotation(-20.0f, 180.0f, 0.0f);
     }
 
     ~Scene() override = default;
+
 
     void Render() override
     {

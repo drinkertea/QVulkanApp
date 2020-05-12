@@ -310,6 +310,21 @@ TEST(ChunkUtilsTests, ShiftTest13)
     EXPECT_EQ(before, after);
 }
 
+TEST(ChunkUtilsTests, ShiftTest15)
+{
+    std::vector<std::vector<int>> before = {
+        { 11, 12, 13, 14, 15 },
+        { 21, 22, 23, 24, 25 },
+        { 31, 32, 33, 34, 35 },
+        { 41, 42, 43, 44, 45 },
+    };
+
+    std::vector<std::vector<int>> after = before;
+
+    Scene::utils::ShiftPlane(vec2i(0, 0), before);
+    EXPECT_EQ(before, after);
+}
+
 TEST(ChunkUtilsTests, ShiftTest14)
 {
     std::vector<std::vector<int>> before = {
@@ -328,5 +343,25 @@ TEST(ChunkUtilsTests, ShiftTest14)
 
     Scene::utils::ShiftPlane(vec2i(4, -5), before);
     EXPECT_EQ(before, after);
+}
+
+TEST(ChunkUtilsTests, IterateFromMidTest)
+{
+    int c = 0;
+    int i = 0;
+    Scene::utils::IterateFromMid(4, { 2,2 }, [&](int index, const vec2i&) {
+        c++;
+        if (index > i)
+            i = index;
+    });
+    EXPECT_EQ(c, i + 1);
+}
+
+
+TEST(ChunkUtilsTests, IterateFromMidTest2)
+{
+    Scene::utils::IterateFromMid(40, { 200,-200 }, [&](int index, const vec2i& pos) {
+        EXPECT_EQ(static_cast<uint32_t>(index), Scene::utils::GetRank({ 200,-200 }, pos));
+    });
 }
 

@@ -102,9 +102,10 @@ Chunk::~Chunk()
     if (!buffer)
         task_queue.DelTask(create_task_id);
 
-    task_queue.AddTask([bp = buffer.release()]() {
-        delete bp;
-    });
+    buffer.release();
+    //task_queue.AddTask([bp = buffer.release()]() {
+    //    delete bp;
+    //});
 }
 
 const Vulkan::IInstanceBuffer& Scene::Chunk::GetData() const
