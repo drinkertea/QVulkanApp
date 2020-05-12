@@ -147,7 +147,7 @@ class ChunkStorage
 
     std::unique_ptr<INoise> noiser;
 
-    static constexpr int32_t render_distance = 4;
+    static constexpr int32_t render_distance = 16;
     static constexpr int32_t squere_len = render_distance * 2 + 1;
 
     using Chunks = std::vector<std::vector<std::unique_ptr<Chunk>>>;

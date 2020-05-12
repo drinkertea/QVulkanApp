@@ -44,11 +44,11 @@ struct CubeInstance
     CubeFace face;
 };
 
-
 class TaskQueue
 {
 public:
     uint64_t AddTask(std::function<void()>&& task);
+    void AddRelTask(std::function<void()>&& task);
     void DelTask(uint64_t);
     void ExecuteAll();
     ~TaskQueue();
@@ -56,9 +56,13 @@ public:
 private:
     using TaskPool = std::map<uint64_t, std::function<void()>>;
 
-    uint64_t   curr_task_id = 0;
-    TaskPool   tasks;
-    std::mutex mutex;
+    uint64_t    curr_task_id = 0;
+    TaskPool    tasks;
+    TaskPool    rel_tasks;
+
+    std::map<uint64_t, uint64_t> rel_attempts;
+
+    std::mutex  mutex;
 };
 
 class Chunk

@@ -102,10 +102,9 @@ Chunk::~Chunk()
     if (!buffer)
         task_queue.DelTask(create_task_id);
 
-    buffer.release();
-    //task_queue.AddTask([bp = buffer.release()]() {
-    //    delete bp;
-    //});
+    task_queue.AddRelTask([bp = buffer.release()]() {
+        delete bp;
+    });
 }
 
 const Vulkan::IInstanceBuffer& Scene::Chunk::GetData() const
@@ -130,6 +129,12 @@ uint64_t TaskQueue::AddTask(std::function<void()>&& task)
     return curr_task_id - 1u;
 }
 
+void TaskQueue::AddRelTask(std::function<void()>&& task)
+{
+    std::lock_guard<std::mutex> lg(mutex);
+    rel_tasks[curr_task_id++].swap(std::move(task));
+}
+
 void TaskQueue::DelTask(uint64_t id)
 {
     std::lock_guard<std::mutex> lg(mutex);
@@ -142,11 +147,25 @@ void TaskQueue::ExecuteAll()
     for (auto& task : tasks)
         task.second();
     tasks.clear();
+
+    auto it = rel_tasks.begin();
+    for (; it != rel_tasks.end(); ) {
+        if (rel_attempts[it->first]++ > 5) {
+            it->second();
+            it = rel_tasks.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
 }
 
 TaskQueue::~TaskQueue()
 {
-    ExecuteAll();
+    for (auto& task : rel_tasks)
+        task.second();
+    tasks.clear();
 }
 
 }
