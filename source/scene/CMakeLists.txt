@@ -15,6 +15,7 @@ target_sources(Scene
         Scene.cpp
         ChunkUtils.h
         ChunkUtils.cpp
+        ThreadUtils.hpp
 )
 
 target_include_directories(Scene
