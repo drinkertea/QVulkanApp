@@ -15,6 +15,8 @@ target_sources(Scene
         Scene.cpp
         ChunkUtils.h
         ChunkUtils.cpp
+        ChunkStorage.h
+        ChunkStorage.cpp
         ThreadUtils.hpp
 )
 
