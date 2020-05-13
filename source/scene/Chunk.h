@@ -93,4 +93,6 @@ private:
     std::unique_ptr<Vulkan::IInstanceBuffer> buffer;
 };
 
+using ChunkPtr = std::unique_ptr<Chunk>;
+
 }

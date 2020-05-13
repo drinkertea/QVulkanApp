@@ -14,12 +14,12 @@ namespace utils
 template <typename T>
 struct PriorityExecutor
 {
-    PriorityExecutor(int thread_count = 0)
+    PriorityExecutor(uint32_t thread_count = 0)
     {
-        int n = thread_count;
+        uint32_t n = thread_count;
         if (n <= 0)
-            n = std::max(std::thread::hardware_concurrency() / 2, 1);
-        for (int i = 0; i < n; ++i)
+            n = std::max(std::thread::hardware_concurrency() / 2u, 1u);
+        for (uint32_t i = 0; i < n; ++i)
             execution_threads.emplace_back(&PriorityExecutor::ExecutionThread, this);
     }
 

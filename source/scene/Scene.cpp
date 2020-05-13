@@ -11,11 +11,7 @@
 #include "Texture.h"
 #include "Shader.h"
 
-#include <mutex>
-#include <map>
-#include <set>
-#include <atomic>
-#include <condition_variable>
+#include "ThreadUtils.hpp"
 
 namespace Scene
 {
@@ -70,73 +66,11 @@ struct ChunkKey
     }
 };
 
-class ContiniousPool
+struct ChunkWrapper
 {
-    std::thread worker;
-    std::atomic_bool terminated = false;
-    std::atomic_bool want_add = false;
-    std::atomic_bool paused = false;
-    std::atomic_bool progress = false;
-
-    std::map<int, std::function<void()>> pool;
-    std::mutex pool_mutex;
-    std::condition_variable add_cv;
-
-    void ExecutionThread()
-    {
-        std::unique_lock<std::mutex> lg(pool_mutex);
-        while (!terminated)
-        {
-            while (want_add)
-                add_cv.wait(lg);
-
-            if (pool.empty() || paused)
-            {
-                std::this_thread::sleep_for(std::chrono::microseconds(25u));
-                continue;
-            }
-
-            progress = true;
-            std::function<void()> t;
-            t.swap(pool.begin()->second);
-            pool.erase(pool.begin());
-            t();
-            progress = false;
-        }
-    }
-
-public:
-    ContiniousPool()
-        : worker(&ContiniousPool::ExecutionThread, this)
-    {
-    }
-
-    void Pause()
-    {
-        paused = true;
-        while (progress);
-    }
-
-    void Resume()
-    {
-        paused = false;
-    }
-
-    void AddTask(const int& key, std::function<void()>&& task)
-    {
-        want_add = true;
-        std::lock_guard<std::mutex> lg(pool_mutex);
-        pool[key].swap(std::move(task));
-        want_add = false;
-        add_cv.notify_all();
-    }
-
-    ~ContiniousPool()
-    {
-        terminated = true;
-        while (!worker.joinable());
-        worker.join();
-    }
+    utils::vec2i mid{};
+    utils::vec2i pos{};
+    ChunkPtr     chunk;
 };
 
 class ChunkStorage
@@ -150,15 +84,16 @@ class ChunkStorage
     static constexpr int32_t render_distance = 16;
     static constexpr int32_t squere_len = render_distance * 2 + 1;
 
-    using Chunks = std::vector<std::vector<std::unique_ptr<Chunk>>>;
+    using Chunks = std::vector<std::vector<ChunkPtr>>;
+    using FutureChunks = std::vector<std::future<ChunkWrapper>>;
     Chunks chunks;
-    std::mutex chunks_mutex;
+    FutureChunks future_chunks;
 
     utils::vec2i current_chunk = g_invalid_pos;
 
-    ContiniousPool cpu_creation_pool;
+    utils::PriorityExecutor<ChunkWrapper> cpu_creation_pool;
 
-    std::unique_ptr<Chunk>& GetChunk(const utils::vec2i& mid, const utils::vec2i& pos)
+    ChunkPtr& GetChunk(const utils::vec2i& mid, const utils::vec2i& pos)
     {
         return chunks[render_distance + pos.x - mid.x][render_distance + pos.y - mid.y];
     }
@@ -197,18 +132,23 @@ public:
         for (auto& x : chunks)
             x.resize(squere_len);
 
+        future_chunks.resize(squere_len * squere_len);
+
         AddCpuTasks();
         const auto& chunk = GetChunk(current_chunk, current_chunk);
         while (!chunk)
+        {
+            UpdateChunks();
             std::this_thread::sleep_for(std::chrono::microseconds(1u));
+        }
         RenderBegin();
     }
 
     const Vulkan::IInstanceBuffer& GetInstanceLayout()
     {
         const auto& chunk = GetChunk(current_chunk, current_chunk);
-        while (!chunk || !*chunk)
-            std::this_thread::sleep_for(std::chrono::microseconds(1u));
+        if (!chunk || !*chunk)
+            throw std::logic_error("First chunk must be loaded!");
         return chunk->GetData();
     }
 
@@ -216,13 +156,9 @@ public:
     {
         auto cam_chunk = GetCamPos();
         if (cam_chunk == current_chunk)
-            return;
+            return UpdateChunks();
 
         utils::vec2i translation = cam_chunk - current_chunk;
-
-        cpu_creation_pool.Pause();
-
-        std::lock_guard<std::mutex> lg(chunks_mutex);
 
         if (current_chunk != g_invalid_pos && translation != utils::vec2i(0, 0))
         {
@@ -233,22 +169,36 @@ public:
         utils::IterateFromMid(render_distance, current_chunk, [&](int index, const utils::vec2i& pos) {
             const auto& chunk = GetChunk(current_chunk, pos);
             if (chunk)
-            {
                 return;
-            }
 
-            cpu_creation_pool.AddTask(index, std::bind([this](const utils::vec2i& mid, const utils::vec2i& pos) {
-                if (mid != current_chunk)
-                    return;
-                auto chunk = std::make_unique<Chunk>(pos, factory, *noiser, gpu_creation_pool);
-                std::lock_guard<std::mutex> lg(chunks_mutex);
-                if (mid != current_chunk)
-                    return;
-                GetChunk(current_chunk, pos).swap(chunk);
-            }, current_chunk, pos));
+            future_chunks[index] = cpu_creation_pool.Add(index,
+                std::bind([this](const utils::vec2i& mid, const utils::vec2i& pos) -> ChunkWrapper {
+                    if (mid != current_chunk)
+                        return { g_invalid_pos, g_invalid_pos, nullptr};
+                    return { mid, pos, std::make_unique<Chunk>(pos, factory, *noiser, gpu_creation_pool) };
+                },
+                current_chunk,
+                pos
+            ));
         });
 
-        cpu_creation_pool.Resume();
+        UpdateChunks();
+    }
+
+    void UpdateChunks()
+    {
+        for (auto& future_chunk : future_chunks)
+        {
+            bool ready = future_chunk.valid() && future_chunk.wait_for(std::chrono::milliseconds(0u)) == std::future_status::ready;
+            if (!ready)
+                continue;
+
+            auto data = future_chunk.get();
+            if (!data.chunk || current_chunk != data.mid)
+                continue;
+
+            GetChunk(current_chunk, data.pos).swap(data.chunk);
+        }
     }
 
     void RenderBegin()
@@ -258,7 +208,6 @@ public:
 
     void ForEach(const std::function<void(const Chunk&)>& callback)
     {
-        std::lock_guard<std::mutex> lg(chunks_mutex);
         utils::IterateFromMid(render_distance, current_chunk, [&](int index, const utils::vec2i& pos) {
             const auto& chunk = GetChunk(current_chunk, pos);
             if (!chunk || !*chunk)
