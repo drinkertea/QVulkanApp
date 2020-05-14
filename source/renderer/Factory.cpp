@@ -27,6 +27,11 @@ public:
 
     ~Factory() override = default;
 
+    uint32_t GetFrameBufferCount() const override
+    {
+        return static_cast<uint32_t>(window.concurrentFrameCount());
+    }
+
     std::unique_ptr<IRenderPass> CreateRenderPass(ICamera& camera) const override
     {
         return std::make_unique<RenderPass>(camera, window);

@@ -73,8 +73,7 @@ public:
     void Render() override
     {
         auto render_pass = factory->CreateRenderPass(camera);
-        chunk_storage->DoCpuWork();
-        chunk_storage->DoGpuWork();
+        chunk_storage->OnRender();
 
         render_pass->Bind(descriptor_set);
         render_pass->Bind(pipeline);

@@ -32,6 +32,8 @@ using Shaders = std::vector<std::reference_wrapper<const IShader>>;
 
 struct IFactory
 {
+    virtual uint32_t GetFrameBufferCount() const = 0;
+
     virtual std::unique_ptr<IRenderPass> CreateRenderPass(ICamera& camera) const = 0;
 
     virtual std::unique_ptr<IInstanceBuffer> CreateInstanceBuffer(const IDataProvider&, const Attributes&) = 0;

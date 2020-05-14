@@ -6,9 +6,36 @@
 #include "Chunk.h"
 #include "Texture.h"
 #include "IResourceLoader.h"
+#include "ThreadUtils.hpp"
 
 namespace Scene
 {
+
+constexpr int32_t g_chunk_size = 32;
+
+Vulkan::Attributes g_instance_attributes = {
+    Vulkan::AttributeFormat::vec3f,
+    Vulkan::AttributeFormat::vec1i,
+    Vulkan::AttributeFormat::vec1i,
+};
+
+enum class CubeFace : uint32_t
+{
+    front = 0,
+    back,
+    left,
+    right,
+    top,
+    bottom,
+    count,
+};
+
+struct CubeInstance
+{
+    float    pos[3];
+    uint32_t texture;
+    CubeFace face;
+};
 
 CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
 {
@@ -30,10 +57,12 @@ CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
     return cube;
 }
 
-Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser, TaskQueue& pool)
+Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser, utils::DefferedExecutor& pool)
     : base_point(base)
     , task_queue(pool)
+    , frame_buffer_count(factory.GetFrameBufferCount())
 {
+    auto size = g_chunk_size;
     bbox.first.x = base_point.x * size;
     bbox.first.z = base_point.y * size;
     bbox.first.y = std::numeric_limits<decltype(bbox.first.y)>::max();
@@ -83,28 +112,23 @@ Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser
     if (cubes.empty())
         cubes.emplace_back(CreateFace(0, 0, 0, CubeFace::front));
 
-    Vulkan::Attributes inst_attribs;
-    inst_attribs.push_back(Vulkan::AttributeFormat::vec3f);
-    inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
-    inst_attribs.push_back(Vulkan::AttributeFormat::vec1i);
-
-    create_task_id = task_queue.AddTask(std::bind(
-        [this, &factory](const std::vector<CubeInstance>& cubes, const Vulkan::Attributes& inst_attribs) {
+    alive_marker = task_queue.Add(utils::DefferedExecutor::immediate,
+        std::bind([this, &factory](const auto& cubes, const auto& inst_attribs) {
             buffer = factory.CreateInstanceBuffer(Vulkan::BufferDataOwner<CubeInstance>(cubes), inst_attribs);
-        },
-        std::move(cubes),
-        std::move(inst_attribs)
-    ));
+        }, std::move(cubes), g_instance_attributes)
+    );
 }
 
 Chunk::~Chunk()
 {
-    if (!buffer)
-        task_queue.DelTask(create_task_id);
+    if (!alive_marker.expired())
+        *alive_marker.lock() = false;
 
-    task_queue.AddRelTask([bp = buffer.release()]() {
-        delete bp;
-    });
+    if (!buffer)
+        return;
+
+    std::shared_ptr<Vulkan::IInstanceBuffer> to_release = std::move(buffer);
+    task_queue.Add(frame_buffer_count, [bp = to_release]() {});
 }
 
 const Vulkan::IInstanceBuffer& Scene::Chunk::GetData() const
@@ -117,55 +141,9 @@ const std::pair<Point3D, Point3D>& Chunk::GetBBox() const
     return bbox;
 }
 
-utils::vec2i Chunk::GetChunkBase(const utils::vec2i& pos)
+utils::vec2i WorldToChunk(const utils::vec2i& pos)
 {
-    return { pos.x / size, pos.y / size };
-}
-
-uint64_t TaskQueue::AddTask(std::function<void()>&& task)
-{
-    std::lock_guard<std::mutex> lg(mutex);
-    tasks[curr_task_id++].swap(std::move(task));
-    return curr_task_id - 1u;
-}
-
-void TaskQueue::AddRelTask(std::function<void()>&& task)
-{
-    std::lock_guard<std::mutex> lg(mutex);
-    rel_tasks[curr_task_id++].swap(std::move(task));
-}
-
-void TaskQueue::DelTask(uint64_t id)
-{
-    std::lock_guard<std::mutex> lg(mutex);
-    tasks.erase(id);
-}
-
-void TaskQueue::ExecuteAll()
-{
-    std::lock_guard<std::mutex> lg(mutex);
-    for (auto& task : tasks)
-        task.second();
-    tasks.clear();
-
-    auto it = rel_tasks.begin();
-    for (; it != rel_tasks.end(); ) {
-        if (rel_attempts[it->first]++ > 5) {
-            it->second();
-            it = rel_tasks.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
-    }
-}
-
-TaskQueue::~TaskQueue()
-{
-    for (auto& task : rel_tasks)
-        task.second();
-    tasks.clear();
+    return { pos.x / g_chunk_size, pos.y / g_chunk_size };
 }
 
 }

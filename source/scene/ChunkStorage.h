@@ -15,12 +15,11 @@ struct IInstanceBuffer;
 namespace Scene
 {
 
-class Chunk;
+struct Chunk;
 
 struct IChunkStorage
 {
-    virtual void DoCpuWork() = 0;
-    virtual void DoGpuWork() = 0;
+    virtual void OnRender() = 0;
 
     virtual void ForEach(const std::function<void(const Chunk&)>& callback) = 0;
 

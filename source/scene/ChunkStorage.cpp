@@ -24,7 +24,7 @@ class ChunkStorage
 {
     Vulkan::ICamera& camera;
     Vulkan::IFactory& factory;
-    TaskQueue gpu_creation_pool;
+    utils::DefferedExecutor gpu_creation_pool;
 
     std::unique_ptr<INoise> noiser;
 
@@ -40,6 +40,8 @@ class ChunkStorage
 
     utils::PriorityExecutor<ChunkWrapper> cpu_creation_pool;
 
+    uint64_t frame_number = 0;
+
     ChunkPtr& GetChunk(const utils::vec2i& mid, const utils::vec2i& pos)
     {
         return chunks[render_distance + pos.x - mid.x][render_distance + pos.y - mid.y];
@@ -54,7 +56,7 @@ public:
     utils::vec2i GetCamPos() const
     {
         auto pos = camera.GetViewPos();
-        return Chunk::GetChunkBase({ static_cast<int32_t>(pos.x), static_cast<int32_t>(pos.z) });
+        return WorldToChunk({ static_cast<int32_t>(pos.x), static_cast<int32_t>(pos.z) });
     }
 
     ChunkStorage(Vulkan::ICamera& camera, Vulkan::IFactory& factory)
@@ -81,12 +83,12 @@ public:
     const Vulkan::IInstanceBuffer& GetInstanceLayout() const override
     {
         const auto& chunk = GetChunk(current_chunk, current_chunk);
-        if (!chunk || !*chunk)
+        if (!chunk || !chunk->Ready())
             throw std::logic_error("First chunk must be loaded!");
         return chunk->GetData();
     }
 
-    void DoCpuWork() override
+    void DoCpuWork()
     {
         auto cam_chunk = GetCamPos();
         if (cam_chunk == current_chunk)
@@ -135,16 +137,22 @@ public:
         }
     }
 
-    void DoGpuWork() override
+    void DoGpuWork()
     {
-        gpu_creation_pool.ExecuteAll();
+        gpu_creation_pool.Execute(frame_number++);
+    }
+
+    void OnRender() override
+    {
+        DoCpuWork();
+        DoGpuWork();
     }
 
     void ForEach(const std::function<void(const Chunk&)>& callback) override
     {
         utils::IterateFromMid(render_distance, current_chunk, [&](int index, const utils::vec2i& pos) {
             const auto& chunk = GetChunk(current_chunk, pos);
-            if (!chunk || !*chunk)
+            if (!chunk || !chunk->Ready())
                 return;
 
             callback(*chunk);

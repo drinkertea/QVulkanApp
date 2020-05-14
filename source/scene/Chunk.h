@@ -19,6 +19,13 @@ struct INoise;
 namespace Scene
 {
 
+namespace utils
+{
+
+struct DefferedExecutor;
+
+}
+
 struct Point3D
 {
     int32_t x = 0;
@@ -26,71 +33,28 @@ struct Point3D
     int32_t z = 0;
 };
 
-enum class CubeFace : uint32_t
+utils::vec2i WorldToChunk(const utils::vec2i& pos);
+
+struct Chunk
 {
-    front = 0,
-    back,
-    left,
-    right,
-    top,
-    bottom,
-    count,
-};
-
-struct CubeInstance
-{
-    float    pos[3];
-    uint32_t texture;
-    CubeFace face;
-};
-
-class TaskQueue
-{
-public:
-    uint64_t AddTask(std::function<void()>&& task);
-    void AddRelTask(std::function<void()>&& task);
-    void DelTask(uint64_t);
-    void ExecuteAll();
-    ~TaskQueue();
-
-private:
-    using TaskPool = std::map<uint64_t, std::function<void()>>;
-
-    uint64_t    curr_task_id = 0;
-    TaskPool    tasks;
-    TaskPool    rel_tasks;
-
-    std::map<uint64_t, uint64_t> rel_attempts;
-
-    std::mutex  mutex;
-};
-
-class Chunk
-{
-    static constexpr int32_t size = 32;
-
-public:
-    Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser, TaskQueue& pool);
+    Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser, utils::DefferedExecutor& pool);
     ~Chunk();
 
     const Vulkan::IInstanceBuffer& GetData() const;
 
     const std::pair<Point3D, Point3D>& GetBBox() const;
 
-    operator bool() const { return !!buffer; }
-
-    const utils::vec2i& GetBase() const { return base_point; }
-
-    static utils::vec2i GetChunkBase(const utils::vec2i& pos);
+    bool Ready() const { return !!buffer; }
 
 private:
-    utils::vec2i base_point{};
+    utils::vec2i                base_point{};
     std::pair<Point3D, Point3D> bbox;
 
-    TaskQueue& task_queue;
-    uint64_t create_task_id;
-
     std::unique_ptr<Vulkan::IInstanceBuffer> buffer;
+
+    utils::DefferedExecutor& task_queue;
+    std::weak_ptr<bool>      alive_marker;
+    uint32_t                 frame_buffer_count = 1u;
 };
 
 using ChunkPtr = std::unique_ptr<Chunk>;

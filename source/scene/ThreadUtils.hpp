@@ -1,5 +1,6 @@
 #pragma once
 #include <map>
+#include <deque>
 #include <cstdint>
 #include <mutex>
 #include <condition_variable>
@@ -10,6 +11,103 @@ namespace Scene
 {
 namespace utils
 {
+
+struct BoolScopeGuard
+{
+    bool& val;
+
+    BoolScopeGuard(bool& v)
+        : val(v)
+    {
+    }
+
+    ~BoolScopeGuard()
+    {
+        val = !val;
+    }
+};
+
+struct DefferedExecutor
+{
+    static constexpr uint64_t immediate = 0u;
+
+    std::weak_ptr<bool> Add(uint64_t delay, std::function<void()>&& task)
+    {
+        std::unique_lock lock(tasks_mutex);
+        while (executig)
+            condition_variable.wait(lock);
+
+        tasks.emplace_back(prev_time + delay, std::move(task));
+        return tasks.back().alive_marker;
+    }
+
+    void Execute(uint64_t time)
+    {
+        {
+            BoolScopeGuard guard(executig);
+            executig = true;
+
+            std::unique_lock lock(tasks_mutex);
+            tasks.erase(std::remove_if(tasks.begin(), tasks.end(), [time](const auto& task) {
+                return task.execution_time <= time;
+            }), tasks.end());
+            prev_time = time;
+        }
+        condition_variable.notify_all();
+    }
+
+    ~DefferedExecutor()
+    {
+        Execute(std::numeric_limits<uint64_t>::max());
+    }
+
+private:
+    struct TaskWrapper
+    {
+        uint64_t execution_time = 0u;
+        std::function<void()> task;
+
+        std::shared_ptr<bool> alive_marker = std::make_shared<bool>(true);
+
+        TaskWrapper(uint64_t et, std::function<void()>&& t)
+            : execution_time(et)
+            , task(std::move(t))
+        {
+        }
+
+        TaskWrapper(TaskWrapper&& r)
+            : execution_time(r.execution_time)
+        {
+            task.swap(r.task);
+            alive_marker.swap(r.alive_marker);
+        }
+
+        TaskWrapper& operator=(TaskWrapper&& r)
+        {
+            execution_time = r.execution_time;
+            task.swap(r.task);
+            alive_marker.swap(r.alive_marker);
+            return *this;
+        }
+
+        ~TaskWrapper()
+        {
+            if (!*alive_marker)
+                return;
+            task();
+        }
+
+        TaskWrapper(const TaskWrapper&) = delete;
+        TaskWrapper& operator=(const TaskWrapper&) = delete;
+    };
+
+    uint64_t prev_time = 0u;
+    std::deque<TaskWrapper> tasks;
+
+    std::mutex               tasks_mutex;
+    std::condition_variable  condition_variable;
+    bool executig = false;
+};
 
 template <typename T>
 struct PriorityExecutor
@@ -35,13 +133,12 @@ struct PriorityExecutor
     {
         Task task(std::move(func));
         std::future<T> res = task.get_future();
-
-        adding = true;
         {
+            BoolScopeGuard guard(adding);
+            adding = true;
             std::unique_lock<std::mutex> lock(tasks_mutex);
             tasks[key].swap(task);
         }
-        adding = false;
         condition_variable.notify_one();
 
         return res;
