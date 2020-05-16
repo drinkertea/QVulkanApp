@@ -1,6 +1,8 @@
 #include <FastNoise.h>
 #include "Noise.h"
 
+#include <random>
+
 class Noise
     : public INoise
 {
@@ -10,12 +12,17 @@ class Noise
 
     float amplitude = 0.f;
 
+    std::random_device random_devive;
+    mutable std::mt19937 generator;
+    std::uniform_int_distribution<> distribution{0, 256};
+
 public:
     Noise(uint32_t seed, float amplitude)
         : generator01(static_cast<int>(seed))
         , generator02(static_cast<int>(seed))
         , generator04(static_cast<int>(seed))
         , amplitude(amplitude)
+        , generator(seed)
     {
         generator01.SetFrequency(0.01f);
         generator02.SetFrequency(0.02f);
@@ -39,6 +46,13 @@ public:
             GetHeight(generator02, x, y, amplitude / 2) +
             GetHeight(generator04, x, y, amplitude / 4)
         ));
+    }
+
+    bool IsTree(int32_t x, int32_t y) const override
+    {
+        uint64_t val = static_cast<uint64_t>(distribution(generator)) * x;
+        val += static_cast<uint64_t>(distribution(generator)) * y;
+        return (val % 128) == 0;
     }
 };
 

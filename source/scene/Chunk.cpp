@@ -13,6 +13,7 @@ namespace Scene
 
 constexpr int32_t g_chunk_size = 32;
 constexpr uint32_t g_grass_bottom = 57;
+constexpr uint32_t g_grass_top = 78;
 
 Vulkan::Attributes g_instance_attributes = {
     Vulkan::AttributeFormat::vec3f,
@@ -38,24 +39,66 @@ struct CubeInstance
     CubeFace face;
 };
 
-CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
+CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face, TextureType type)
 {
     CubeInstance cube = {};
     cube.pos[0] = static_cast<float>(x);
     cube.pos[1] = static_cast<float>(y);
     cube.pos[2] = static_cast<float>(z);
     cube.face = static_cast<CubeFace>(face);
-    if (y > 84)
-        cube.texture = static_cast<uint32_t>(TextureType::Snow);
-    else if (y > 78)
-        cube.texture = static_cast<uint32_t>(TextureType::Stone);
-    else if (y > g_grass_bottom)
-        cube.texture = face == CubeFace::top ?
-        static_cast<uint32_t>(TextureType::GrassBlockTop) :
-        static_cast<uint32_t>(TextureType::GrassBlockSide);
-    else
-        cube.texture = static_cast<uint32_t>(TextureType::Sand);
+    cube.texture = static_cast<uint32_t>(type);
     return cube;
+}
+
+CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
+{
+    if (y > 84)
+        return CreateFace(x,y, z, face, TextureType::Snow);
+    else if (y > g_grass_top)
+        return CreateFace(x, y, z, face, TextureType::Stone);
+    else if (y > g_grass_bottom)
+        return CreateFace(x, y, z, face, face == CubeFace::top ? TextureType::GrassBlockTop :TextureType::GrassBlockSide);
+
+    return CreateFace(x, y, z, face, TextureType::Sand);
+}
+
+void AddTree(int32_t x, int32_t y, int32_t z, std::vector<CubeInstance>& cubes)
+{
+    constexpr int32_t height = 5;
+    constexpr int32_t rad = 2;
+    for (int i = 0; i < height; ++i)
+    {
+        cubes.emplace_back(CreateFace(x, y + i, z, CubeFace::front, TextureType::OakLog));
+        cubes.emplace_back(CreateFace(x, y + i, z, CubeFace::back, TextureType::OakLog));
+        cubes.emplace_back(CreateFace(x, y + i, z, CubeFace::left, TextureType::OakLog));
+        cubes.emplace_back(CreateFace(x, y + i, z, CubeFace::right, TextureType::OakLog));
+    }
+
+    for (int i = -rad; i <= rad; ++i)
+    {
+        for (int j = -rad; j <= rad; ++j)
+        {
+            for (int k = 0; k < 3; ++k)
+            {
+                if (k == 2 && (std::abs(i) > 1 || std::abs(j) > 1))
+                    continue;
+                cubes.emplace_back(CreateFace(x + i, y + 3 + k, z + j, CubeFace::front, TextureType::LeavesOakOpaque));
+                cubes.emplace_back(CreateFace(x + i, y + 3 + k, z + j, CubeFace::back,  TextureType::LeavesOakOpaque));
+                cubes.emplace_back(CreateFace(x + i, y + 3 + k, z + j, CubeFace::left,  TextureType::LeavesOakOpaque));
+                cubes.emplace_back(CreateFace(x + i, y + 3 + k, z + j, CubeFace::right, TextureType::LeavesOakOpaque));
+            }
+
+            int add = !(std::abs(i) > 1 || std::abs(j) > 1);
+            cubes.emplace_back(CreateFace(x + i, y + 3, z + j, CubeFace::bottom, TextureType::LeavesOakOpaque));
+            cubes.emplace_back(CreateFace(x + i, y + 4 + add, z + j, CubeFace::top, TextureType::LeavesOakOpaque));
+
+            if (i == x && j == z)
+                continue;
+        }
+    }
+
+    cubes.emplace_back(CreateFace(x, y + height - 1, z, CubeFace::top, TextureType::OakLogTop));
+
 }
 
 Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser, utils::DefferedExecutor& pool)
@@ -81,6 +124,12 @@ Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser
             auto z = base_point.y * size + z_offset;
             int32_t y = noiser.GetHeight(x, z);
             cubes.emplace_back(CreateFace(x, y, z, CubeFace::top));
+            if (noiser.IsTree(x, z) && cubes.back().texture == static_cast<uint32_t>(TextureType::GrassBlockTop))
+            {
+                //cubes.back().texture = static_cast<uint32_t>(TextureType::OakLog);
+                AddTree(x, y, z, cubes);
+            }
+
 
             if (y < g_grass_bottom)
             {
