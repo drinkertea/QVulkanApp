@@ -13,5 +13,6 @@
     <file>oak_log_top.png</file>
     <file>grass_block_top.png</file>
     <file>grass_block_side.png</file>
+    <file>water_overlay.png</file>
 </qresource>
 </RCC>

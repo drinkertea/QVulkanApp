@@ -80,6 +80,13 @@ Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser
             int32_t y = noiser.GetHeight(x, z);
             cubes.emplace_back(CreateFace(x, y, z, CubeFace::top));
 
+            if (y < 57)
+            {
+                cubes.emplace_back(cubes.back());
+                cubes.back().texture = static_cast<uint32_t>(TextureType::WaterOverlay);
+                cubes.back().pos[1] = 56.f;
+            }
+
             bbox.second.y = std::max(bbox.second.y, y + 1);
             while (y >= 0)
             {

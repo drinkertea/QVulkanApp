@@ -25,6 +25,7 @@ enum class TextureType : uint32_t
     LeavesOakOpaque,
     OakLog,
     OakLogTop,
+    WaterOverlay,
     Count,
 
     First = 0u

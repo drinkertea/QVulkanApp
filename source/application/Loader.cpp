@@ -39,6 +39,7 @@ class Loader
         case Scene::TextureType::LeavesOakOpaque: return ":/leaves_oak_opaque.png";
         case Scene::TextureType::OakLog:          return ":/oak_log.png";
         case Scene::TextureType::OakLogTop:       return ":/oak_log_top.png";
+        case Scene::TextureType::WaterOverlay:    return ":/water_overlay.png";
         default:
             throw std::logic_error("Unhandled enum value");
         }
