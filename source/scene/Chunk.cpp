@@ -12,6 +12,7 @@ namespace Scene
 {
 
 constexpr int32_t g_chunk_size = 32;
+constexpr uint32_t g_grass_bottom = 57;
 
 Vulkan::Attributes g_instance_attributes = {
     Vulkan::AttributeFormat::vec3f,
@@ -48,7 +49,7 @@ CubeInstance CreateFace(int32_t x, int32_t y, int32_t z, CubeFace face)
         cube.texture = static_cast<uint32_t>(TextureType::Snow);
     else if (y > 78)
         cube.texture = static_cast<uint32_t>(TextureType::Stone);
-    else if (y > 57)
+    else if (y > g_grass_bottom)
         cube.texture = face == CubeFace::top ?
         static_cast<uint32_t>(TextureType::GrassBlockTop) :
         static_cast<uint32_t>(TextureType::GrassBlockSide);
@@ -81,14 +82,14 @@ Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser
             int32_t y = noiser.GetHeight(x, z);
             cubes.emplace_back(CreateFace(x, y, z, CubeFace::top));
 
-            if (y < 57)
+            if (y < g_grass_bottom)
             {
                 water.emplace_back(cubes.back());
                 water.back().texture = static_cast<uint32_t>(TextureType::WaterOverlay);
-                water.back().pos[1] = 57.f;
+                water.back().pos[1] = static_cast<float>(g_grass_bottom);
             }
 
-            bbox.second.y = std::max(bbox.second.y, y + 1);
+            bbox.second.y = std::max(bbox.second.y, std::max(y + 1, static_cast<int32_t>(g_grass_bottom)));
             while (y >= 0)
             {
                 auto before = cubes.size();
