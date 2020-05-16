@@ -87,5 +87,10 @@ void main()
         } break;
     }
 
+    if (outUV.z > 12.5f)
+	{
+		pos.y = 0.9f;
+	}
+
     gl_Position = pushConsts.mvp * vec4(pos + instancePos, 1.0);
 }

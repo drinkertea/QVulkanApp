@@ -71,6 +71,7 @@ Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser
     bbox.second.y = 0;
 
     std::vector<CubeInstance> cubes;
+    std::vector<CubeInstance> water;
     for (int32_t x_offset = 0; x_offset < size; ++x_offset)
     {
         for (int32_t z_offset = 0; z_offset < size; ++z_offset)
@@ -82,9 +83,9 @@ Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser
 
             if (y < 57)
             {
-                cubes.emplace_back(cubes.back());
-                cubes.back().texture = static_cast<uint32_t>(TextureType::WaterOverlay);
-                cubes.back().pos[1] = 56.f;
+                water.emplace_back(cubes.back());
+                water.back().texture = static_cast<uint32_t>(TextureType::WaterOverlay);
+                water.back().pos[1] = 57.f;
             }
 
             bbox.second.y = std::max(bbox.second.y, y + 1);
@@ -118,6 +119,11 @@ Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser
     }
     if (cubes.empty())
         cubes.emplace_back(CreateFace(0, 0, 0, CubeFace::front));
+
+    has_water = !water.empty();
+    water_offset = static_cast<uint32_t>(cubes.size());
+    cubes.insert(cubes.end(), water.begin(), water.end());
+    buffer_size = static_cast<uint32_t>(cubes.size());
 
     alive_marker = task_queue.Add(utils::DefferedExecutor::immediate,
         std::bind([this, &factory](const auto& cubes, const auto& inst_attribs) {

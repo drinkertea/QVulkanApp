@@ -42,6 +42,10 @@ struct Chunk
 
     const Vulkan::IInstanceBuffer& GetData() const;
 
+    uint32_t GetWaterOffset() const { return water_offset; }
+    uint32_t GetGpuSize() const { return buffer_size; }
+    bool HasWater() const { return has_water; }
+
     const std::pair<Point3D, Point3D>& GetBBox() const;
 
     bool Ready() const { return !!buffer; }
@@ -51,6 +55,9 @@ private:
     std::pair<Point3D, Point3D> bbox;
 
     std::unique_ptr<Vulkan::IInstanceBuffer> buffer;
+    uint32_t water_offset = 0;
+    uint32_t buffer_size = 0;
+    bool has_water = false;
 
     utils::DefferedExecutor& task_queue;
     std::weak_ptr<bool>      alive_marker;

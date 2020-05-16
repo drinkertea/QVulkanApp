@@ -72,30 +72,43 @@ public:
 
     void Render() override
     {
-        auto render_pass = factory->CreateRenderPass(camera);
-        chunk_storage->OnRender();
-
-        render_pass->Bind(descriptor_set);
-        render_pass->Bind(pipeline);
-        render_pass->Bind(index_buffer, vertex_buffer);
-
         int draw_cnt = 0;
-        chunk_storage->ForEach([&](const Chunk& chunk)
+        std::vector<std::reference_wrapper<const Chunk>> frustrum_passed_water_chunks;
         {
-            const auto& bbox = chunk.GetBBox();
-            if (!camera.ObjectVisible(Vulkan::BBox{
-                static_cast<float>(bbox.first.x),
-                static_cast<float>(bbox.first.y),
-                static_cast<float>(bbox.first.z),
-                static_cast<float>(bbox.second.x),
-                static_cast<float>(bbox.second.y),
-                static_cast<float>(bbox.second.z),
-            }))
-                return;
+            auto render_pass = factory->CreateRenderPass(camera);
+            chunk_storage->OnRender();
 
-            ++draw_cnt;
-            render_pass->Draw(chunk.GetData());
-        });
+            render_pass->Bind(descriptor_set);
+            render_pass->Bind(pipeline);
+            render_pass->Bind(index_buffer, vertex_buffer);
+
+
+            chunk_storage->ForEach([&](const Chunk& chunk)
+            {
+                const auto& bbox = chunk.GetBBox();
+                if (!camera.ObjectVisible(Vulkan::BBox{
+                    static_cast<float>(bbox.first.x),
+                    static_cast<float>(bbox.first.y),
+                    static_cast<float>(bbox.first.z),
+                    static_cast<float>(bbox.second.x),
+                    static_cast<float>(bbox.second.y),
+                    static_cast<float>(bbox.second.z),
+                    }))
+                    return;
+
+                ++draw_cnt;
+                render_pass->Draw(chunk.GetData(), chunk.GetWaterOffset());
+                if (chunk.HasWater())
+                    frustrum_passed_water_chunks.emplace_back(chunk);
+            });
+
+            for (const auto& chunk : frustrum_passed_water_chunks)
+                render_pass->Draw(
+                    chunk.get().GetData(),
+                    chunk.get().GetGpuSize() - chunk.get().GetWaterOffset(),
+                    chunk.get().GetWaterOffset()
+                );
+        }
 
         info = " - " + std::to_string(draw_cnt) + " chunks ";
     }

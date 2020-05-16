@@ -80,7 +80,7 @@ struct IRenderPass
     virtual void Bind(const IPipeline&) const = 0;
     virtual void Draw(const IIndexBuffer&, const IVertexBuffer&) const = 0;
     virtual void Bind(const IIndexBuffer&, const IVertexBuffer&) const = 0;
-    virtual void Draw(const IInstanceBuffer&) const = 0;
+    virtual void Draw(const IInstanceBuffer&, uint32_t count = 0, uint32_t offset = 0) const = 0;
     virtual ~IRenderPass() = default;
 };
 

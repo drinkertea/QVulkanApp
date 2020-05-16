@@ -126,7 +126,7 @@ void RenderPass::Draw(const IIndexBuffer& ib, const IVertexBuffer& vb) const
     dev_funcs.vkCmdDrawIndexed(window.currentCommandBuffer(), index_buffer->GetIndexCount(), 1, 0, 0, 0);
 }
 
-void RenderPass::Draw(const IInstanceBuffer& ins) const
+void RenderPass::Draw(const IInstanceBuffer& ins, uint32_t count, uint32_t offset) const
 {
     auto inst_buffer = dynamic_cast<const InstanceBuffer*>(&ins);
     if (!inst_buffer)
@@ -135,7 +135,7 @@ void RenderPass::Draw(const IInstanceBuffer& ins) const
     auto& dev_funcs = *window.vulkanInstance()->deviceFunctions(window.device());
     inst_buffer->Bind(dev_funcs, window.currentCommandBuffer());
 
-    dev_funcs.vkCmdDrawIndexed(window.currentCommandBuffer(), current_index_count, inst_buffer->GetInstanceCount(), 0, 0, 0);
+    dev_funcs.vkCmdDrawIndexed(window.currentCommandBuffer(), current_index_count, count > 0 ? count : inst_buffer->GetInstanceCount(), 0, 0, offset);
 }
 
 }
