@@ -302,7 +302,7 @@ namespace Vulkan
 
         PushConstantLayout mvp_layout{ 0u, sizeof(float) * 16u };
 
-        static constexpr float speed = 100.f;
+        static constexpr float speed = 2.f;
 
     public:
         Camera()
@@ -454,7 +454,7 @@ namespace Vulkan
             auto render_end = std::chrono::high_resolution_clock::now();
             auto time_diff = std::chrono::duration<double, std::milli>(render_end - start_tp).count();
             frame_timer = static_cast<float>(time_diff) / 1000.0f;
-            camera.update(frame_timer);
+            camera.update(1.f);
             if (camera.moving())
             {
                 view_updated = true;
