@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.1.0)
 
-set(CMAKE_PREFIX_PATH "C:\\Qt\\5.14.2\\msvc2017_64")
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
@@ -12,10 +10,14 @@ set (CMAKE_CXX_STANDARD 17)
 
 project(QVulkanApp)
 
+include(cmake/qt-install.cmake)
+get_qt(5.15.0)
+set(CMAKE_PREFIX_PATH ${QT_DIR})
+find_package(Qt5 COMPONENTS GUI REQUIRED)
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 find_package(Vulkan REQUIRED)
-find_package(Qt5 COMPONENTS GUI REQUIRED)
 
 include(cmake/googletest.cmake)
 

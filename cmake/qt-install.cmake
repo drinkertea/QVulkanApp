@@ -1,15 +1,15 @@
 macro(get_qt _version)
+  set(QT_DIR ${PROJECT_BINARY_DIR}/Qt)
   if (EXISTS ${PROJECT_BINARY_DIR}/Qt)
     message(STATUS "Qt already downloaded at: ${PROJECT_BINARY_DIR}/Qt, to force download remove this directory.")
-    return()
-  endif()
+  else()
 
   string(REPLACE "." "" no_dot_ver ${_version})
 
   if (WIN32)
     set(qt_platform "windows_x86")
-    set(qt_compiler "win64_msvc2019_64")
-    set(qt_unpacked "msvc2019_64")
+    set(qt_unpacked "msvc2017_64")
+    set(qt_compiler "win64_${qt_unpacked}")
   else()
     set(qt_platform "linux_x64")
     set(qt_compiler "gcc_64")
@@ -51,10 +51,11 @@ macro(get_qt _version)
 
   string(REPLACE "\"" "" fname ${fname})
 
-  include(download_and_extract.cmake)
+  include(${PROJECT_SOURCE_DIR}/cmake/download_and_extract.cmake)
   download_and_extract(${_url}/${fname} ${PROJECT_BINARY_DIR}/QtTemp)
 
   file(RENAME ${PROJECT_BINARY_DIR}/QtTemp/${_version}/${qt_unpacked} ${PROJECT_BINARY_DIR}/Qt)
 
   file(REMOVE_RECURSE ${PROJECT_BINARY_DIR}/QtTemp)
+  endif()
 endmacro()
