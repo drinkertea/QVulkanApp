@@ -1,28 +1,26 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include "IRenderer.h"
 #include "IFactory.h"
-
-class QVulkanDeviceFunctions;
-class QVulkanWindow;
 
 namespace Vulkan
 {
+
+class DescriptorSet;
+struct VertexLayout;
+struct VulkanShared;
 
 class Pipeline
     : public IPipeline
 {
 public:
-    Pipeline(const IDescriptorSet&, const Shaders&, const IVertexBuffer&, const QVulkanWindow& window, const IInstanceBuffer* instance = nullptr);
-    Pipeline(const IDescriptorSet&, const Shaders&, const IVertexBuffer&, const IInstanceBuffer& instance, const QVulkanWindow& window);
+    Pipeline(const DescriptorSet&, const Shaders&, const VertexLayout&, VulkanShared& vulkan);
     ~Pipeline() override;
 
-    void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const;
+    void Bind(VkCommandBuffer cmd_buf) const;
 
 private:
-    QVulkanDeviceFunctions& functions;
-    VkDevice device = nullptr;
+    VulkanShared& vulkan;
 
     VkPipeline      pipeline = nullptr;
     VkPipelineCache pipeline_cache = nullptr;

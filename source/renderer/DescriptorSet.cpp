@@ -39,13 +39,6 @@ namespace Vulkan
                 layout.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
                 write_descriptor_set.pImageInfo = &textures.back();
             }
-            else if (auto buffer = dynamic_cast<const UniformBuffer*>(&binding.get()))
-            {
-                binding_types.push_back(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-                buffers.push_back(buffer->GetInfo());
-                layout.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-                write_descriptor_set.pBufferInfo = &buffers.back();
-            }
             else if (auto pc = dynamic_cast<const PushConstantLayout*>(&binding.get()))
             {
                 VkPushConstantRange push_constant_range{};

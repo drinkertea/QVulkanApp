@@ -40,7 +40,7 @@ struct Chunk
     Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser, utils::DefferedExecutor& pool);
     ~Chunk();
 
-    const Vulkan::IInstanceBuffer& GetData() const;
+    const Vulkan::IBuffer& GetData() const;
 
     uint32_t GetWaterOffset() const { return water_offset; }
     uint32_t GetGpuSize() const { return buffer_size; }
@@ -54,7 +54,7 @@ private:
     utils::vec2i                base_point{};
     std::pair<Point3D, Point3D> bbox;
 
-    std::unique_ptr<Vulkan::IInstanceBuffer> buffer;
+    std::unique_ptr<Vulkan::IBuffer> buffer;
     uint32_t water_offset = 0;
     uint32_t buffer_size = 0;
     bool has_water = false;

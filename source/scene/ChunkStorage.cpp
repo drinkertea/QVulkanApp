@@ -80,14 +80,6 @@ public:
         DoGpuWork();
     }
 
-    const Vulkan::IInstanceBuffer& GetInstanceLayout() const override
-    {
-        const auto& chunk = GetChunk(current_chunk, current_chunk);
-        if (!chunk || !chunk->Ready())
-            throw std::logic_error("First chunk must be loaded!");
-        return chunk->GetData();
-    }
-
     void DoCpuWork()
     {
         auto cam_chunk = GetCamPos();

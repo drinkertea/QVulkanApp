@@ -91,51 +91,27 @@ void RenderPass::Bind(const IPipeline& pip) const
     if (!pipeline)
         throw std::logic_error("Unknown pipeline set derived");
 
-    pipeline->Bind(*window.vulkanInstance()->deviceFunctions(window.device()), window.currentCommandBuffer());
+    pipeline->Bind(window.currentCommandBuffer());
 }
 
-void RenderPass::Bind(const IIndexBuffer& ib, const IVertexBuffer& vb) const
+void RenderPass::Bind(const IBuffer& buffer) const
 {
-    auto index_buffer = dynamic_cast<const IndexBuffer*>(&ib);
-    if (!index_buffer)
-        throw std::logic_error("Unknown IndexBuffer set derived");
+    const auto& buffer_impl = dynamic_cast<const Buffer&>(buffer);
 
-    auto vertex_buffer = dynamic_cast<const VertexBuffer*>(&vb);
-    if (!vertex_buffer)
-        throw std::logic_error("Unknown VertexBuffer set derived");
+    if (buffer_impl.GetUsage() == BufferUsage::Index)
+        current_index_count = buffer_impl.GetWidth();
 
-    current_index_count = index_buffer->GetIndexCount();
-    auto& dev_funcs = *window.vulkanInstance()->deviceFunctions(window.device());
-    index_buffer->Bind(dev_funcs, window.currentCommandBuffer());
-    vertex_buffer->Bind(dev_funcs, window.currentCommandBuffer());
+    buffer_impl.Bind(window.currentCommandBuffer());
 }
 
-void RenderPass::Draw(const IIndexBuffer& ib, const IVertexBuffer& vb) const
+void RenderPass::Draw(const IBuffer& buffer, uint32_t count, uint32_t offset) const
 {
-    auto index_buffer = dynamic_cast<const IndexBuffer*>(&ib);
-    if (!index_buffer)
-        throw std::logic_error("Unknown IndexBuffer set derived");
-
-    auto vertex_buffer = dynamic_cast<const VertexBuffer*>(&vb);
-    if (!vertex_buffer)
-        throw std::logic_error("Unknown VertexBuffer set derived");
+    const auto& inst_buffer = dynamic_cast<const Buffer&>(buffer);
 
     auto& dev_funcs = *window.vulkanInstance()->deviceFunctions(window.device());
-    index_buffer->Bind(dev_funcs, window.currentCommandBuffer());
-    vertex_buffer->Bind(dev_funcs, window.currentCommandBuffer());
-    dev_funcs.vkCmdDrawIndexed(window.currentCommandBuffer(), index_buffer->GetIndexCount(), 1, 0, 0, 0);
-}
+    inst_buffer.Bind(window.currentCommandBuffer());
 
-void RenderPass::Draw(const IInstanceBuffer& ins, uint32_t count, uint32_t offset) const
-{
-    auto inst_buffer = dynamic_cast<const InstanceBuffer*>(&ins);
-    if (!inst_buffer)
-        throw std::logic_error("Unknown InstanceBuffer set derived");
-
-    auto& dev_funcs = *window.vulkanInstance()->deviceFunctions(window.device());
-    inst_buffer->Bind(dev_funcs, window.currentCommandBuffer());
-
-    dev_funcs.vkCmdDrawIndexed(window.currentCommandBuffer(), current_index_count, count > 0 ? count : inst_buffer->GetInstanceCount(), 0, 0, offset);
+    dev_funcs.vkCmdDrawIndexed(window.currentCommandBuffer(), current_index_count, count > 0 ? count : inst_buffer.GetWidth(), 0, 0, offset);
 }
 
 }

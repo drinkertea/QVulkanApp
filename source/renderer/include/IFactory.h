@@ -11,19 +11,11 @@ namespace Vulkan
 
 struct ICamera;
 
-enum class ShaderType
+enum class BufferUsage
 {
-    vertex = 0,
-    fragment,
-};
-
-enum class AttributeFormat
-{
-    vec1f = 0,
-    vec2f,
-    vec3f,
-    vec4f,
-    vec1i,
+    Index = 0,
+    Vertex,
+    Instance,
 };
 
 using Attributes = std::vector<AttributeFormat>;
@@ -36,17 +28,15 @@ struct IFactory
 
     virtual std::unique_ptr<IRenderPass> CreateRenderPass(ICamera& camera) const = 0;
 
-    virtual std::unique_ptr<IInstanceBuffer> CreateInstanceBuffer(const IDataProvider&, const Attributes&) = 0;
+    virtual std::unique_ptr<IBuffer> CreateBuffer(BufferUsage usage, const IDataProvider&) = 0;
 
     virtual ITexture& CreateTexture(const IDataProvider&) = 0;
-    virtual IVertexBuffer& CreateVertexBuffer(const IDataProvider&, const Attributes&) = 0;
-    virtual IIndexBuffer& CreateIndexBuffer(const IDataProvider&) = 0;
-    virtual IUniformBuffer& CreateUniformBuffer(const IDataProvider&) = 0;
+    virtual IBuffer& AddBuffer(BufferUsage usage, const IDataProvider&) = 0;
+    virtual IVertexLayout& AddVertexLayout() = 0;
 
     virtual IShader& CreateShader(const IDataProvider&, ShaderType) = 0;
     virtual IDescriptorSet& CreateDescriptorSet(const InputResources&) = 0;
-    virtual IPipeline& CreatePipeline(const IDescriptorSet&, const Shaders&, const IVertexBuffer&) = 0;
-    virtual IPipeline& CreatePipeline(const IDescriptorSet&, const Shaders&, const IVertexBuffer&, const IInstanceBuffer&) = 0;
+    virtual IPipeline& CreatePipeline(const IDescriptorSet&, const Shaders&, const IVertexLayout&) = 0;
     virtual ~IFactory() = default;
 };
 

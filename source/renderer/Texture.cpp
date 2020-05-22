@@ -1,76 +1,56 @@
 #include "Texture.h"
+#include "Common.h"
 #include "Utils.h"
 
 #include "ScopeCommandBuffer.h"
 #include "MappedData.h"
 
-#include <QVulkanFunctions>
-#include <QVulkanWindow>
+#include <vector>
 
 namespace Vulkan
 {
-    VkDeviceMemory Allocate(uint32_t index, VkDeviceSize size, const QVulkanWindow& window)
-    {
-        auto device = window.device();
-        auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
-        VkMemoryAllocateInfo allocate_info = {
-            VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            nullptr,
-            size,
-            index
-        };
+    VkDeviceMemory Allocate(uint32_t index, VkDeviceSize size, VkDevice device);
 
-        VkDeviceMemory res = nullptr;
-        VkResultSuccess(device_functions.vkAllocateMemory(device, &allocate_info, nullptr, &res));
-        return res;
-    }
-
-    Image CreateUploadImage(VkFormat format, uint32_t width, uint32_t height, const QVulkanWindow& window)
+    Image CreateUploadImage(VkFormat format, uint32_t width, uint32_t height, VulkanShared& vulkan)
     {
-        auto device = window.device();
-        auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
         Image image{};
 
         auto upload_info = GetImageCreateInfo(format, width, height);
         upload_info.tiling = VK_IMAGE_TILING_LINEAR;
         upload_info.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        VkResultSuccess(device_functions.vkCreateImage(device, &upload_info, nullptr, &image.image));
+        VkResultSuccess(vkCreateImage(vulkan.device, &upload_info, nullptr, &image.image));
 
         VkMemoryRequirements memory_requiments = {};
-        device_functions.vkGetImageMemoryRequirements(device, image.image, &memory_requiments);
-        image.memory = Allocate(window.hostVisibleMemoryIndex(), memory_requiments.size, window);
+        vkGetImageMemoryRequirements(vulkan.device, image.image, &memory_requiments);
+        image.memory = Allocate(vulkan.host_memory_index, memory_requiments.size, vulkan.device);
 
-        VkResultSuccess(device_functions.vkBindImageMemory(device, image.image, image.memory, 0));
+        VkResultSuccess(vkBindImageMemory(vulkan.device, image.image, image.memory, 0));
 
         return image;
     }
 
-    Image CreateImage(VkFormat format, uint32_t width, uint32_t height, uint32_t depth, const QVulkanWindow& window)
+    Image CreateImage(VkFormat format, uint32_t width, uint32_t height, uint32_t depth, VulkanShared& vulkan)
     {
-        auto device = window.device();
-        auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
         Image image{};
 
         auto image_info = GetImageCreateInfo(format, width, height);
         image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
         image_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         image_info.arrayLayers = depth;
-        VkResultSuccess(device_functions.vkCreateImage(device, &image_info, nullptr, &image.image));
+        VkResultSuccess(vkCreateImage(vulkan.device, &image_info, nullptr, &image.image));
 
         VkMemoryRequirements memory_requiments = {};
-        device_functions.vkGetImageMemoryRequirements(device, image.image, &memory_requiments);
-        image.memory = Allocate(window.deviceLocalMemoryIndex(), memory_requiments.size, window);
+        vkGetImageMemoryRequirements(vulkan.device, image.image, &memory_requiments);
+        image.memory = Allocate(vulkan.device_memory_index, memory_requiments.size, vulkan.device);
 
-        VkResultSuccess(device_functions.vkBindImageMemory(device, image.image, image.memory, 0));
+        VkResultSuccess(vkBindImageMemory(vulkan.device, image.image, image.memory, 0));
 
         return image;
     }
 
-    void CopyImage(const std::vector<Image>& srcs, const Image& dst, const VkExtent3D& extent, const QVulkanWindow& window)
+    void CopyImage(const std::vector<Image>& srcs, const Image& dst, const VkExtent3D& extent, VulkanShared& vulkan)
     {
-        auto device = window.device();
-        auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
-        ScopeCommandBuffer command_bufer(window);
+        ScopeCommandBuffer command_bufer(vulkan);
 
         VkImageSubresourceRange subresourceRange = {};
         subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -123,16 +103,16 @@ namespace Vulkan
         command_bufer.TransferBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, barrier);
     }
 
-    VkSampler CreateSampler(const QVulkanWindow& window)
+    VkSampler CreateSampler(VulkanShared& vulkan)
     {
         VkSampler res = nullptr;
-        VkResultSuccess(window.vulkanInstance()->deviceFunctions(window.device())->vkCreateSampler(
-            window.device(), &GetSamplerCreateInfo(), nullptr, &res
+        VkResultSuccess(vkCreateSampler(
+            vulkan.device, &GetSamplerCreateInfo(), nullptr, &res
         ));
         return res;
     }
 
-    VkImageView CreateImageView(VkImage image, uint32_t depth, VkFormat format, const QVulkanWindow& window)
+    VkImageView CreateImageView(VkImage image, uint32_t depth, VkFormat format, VulkanShared& vulkan)
     {
         VkImageView res = nullptr;
         auto view = GetImageViewCreateInfo(
@@ -141,40 +121,39 @@ namespace Vulkan
             format
         );
         view.subresourceRange.layerCount = depth;
-        VkResultSuccess(window.vulkanInstance()->deviceFunctions(window.device())->vkCreateImageView(
-            window.device(), &view, nullptr, &res
+        VkResultSuccess(vkCreateImageView(
+            vulkan.device, &view, nullptr, &res
         ));
         return res;
     }
 
-    Texture::Texture(const IDataProvider& data, const QVulkanWindow& window, VkFormat format)
-        : device(window.device())
-        , functions(*window.vulkanInstance()->deviceFunctions(window.device()))
-        , image(CreateImage(format, data.GetWidth(), data.GetHeight(), data.GetDepth(), window))
-        , sampler(CreateSampler(window))
-        , view(CreateImageView(image.image, data.GetDepth(), format, window))
+    Texture::Texture(const IDataProvider& data, VulkanShared& vulkan, VkFormat format)
+        : vulkan(vulkan)
+        , image(CreateImage(format, data.GetWidth(), data.GetHeight(), data.GetDepth(), vulkan))
+        , sampler(CreateSampler(vulkan))
+        , view(CreateImageView(image.image, data.GetDepth(), format, vulkan))
     {
         auto data_ptr = data.GetData();
         auto layer_size = data.GetWidth() * data.GetHeight() * 4;
         std::vector<Image> uploads;
         for (uint32_t layer = 0; layer < data.GetDepth(); ++layer)
         {
-            uploads.emplace_back(CreateUploadImage(format, data.GetWidth(), data.GetHeight(), window));
+            uploads.emplace_back(CreateUploadImage(format, data.GetWidth(), data.GetHeight(), vulkan));
             auto& upload_image = uploads.back();
             {
-                MappedData mapped_data(upload_image, window);
+                MappedData mapped_data(upload_image, vulkan);
                 memcpy(mapped_data.GetData(), data_ptr, layer_size);
             }
             data_ptr += layer_size;
         }
 
         VkExtent3D extent = { data.GetWidth(), data.GetHeight(), 1 };
-        CopyImage(uploads, image, extent, window);
+        CopyImage(uploads, image, extent, vulkan);
 
         for (const auto& upload : uploads)
         {
-            functions.vkDestroyImage(device, upload.image, nullptr);
-            functions.vkFreeMemory(device, upload.memory, nullptr);
+            vkDestroyImage(vulkan.device, upload.image, nullptr);
+            vkFreeMemory(vulkan.device, upload.memory, nullptr);
         }
     }
 
@@ -189,9 +168,9 @@ namespace Vulkan
 
     Texture::~Texture()
     {
-        functions.vkDestroyImage(device, image.image, nullptr);
-        functions.vkFreeMemory(device, image.memory, nullptr);
-        functions.vkDestroySampler(device, sampler, nullptr);
-        functions.vkDestroyImageView(device, view, nullptr);
+        vkDestroyImage(vulkan.device, image.image, nullptr);
+        vkFreeMemory(vulkan.device, image.memory, nullptr);
+        vkDestroySampler(vulkan.device, sampler, nullptr);
+        vkDestroyImageView(vulkan.device, view, nullptr);
     }
 }

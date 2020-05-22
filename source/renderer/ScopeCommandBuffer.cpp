@@ -1,39 +1,34 @@
-#include <QVulkanWindow>
-#include <QVulkanFunctions>
-
 #include "ScopeCommandBuffer.h"
+
+#include "Common.h"
 #include "Utils.h"
 
 namespace Vulkan
 {
 
-VkCommandBuffer CreateCommandBuffer(const QVulkanWindow& window)
+VkCommandBuffer CreateCommandBuffer(VulkanShared& vulkan)
 {
-    auto& device_functions = *window.vulkanInstance()->deviceFunctions(window.device());
-
     VkCommandBufferAllocateInfo allocate_info{};
     allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocate_info.commandPool = window.graphicsCommandPool();
+    allocate_info.commandPool = vulkan.command_pool;
     allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocate_info.commandBufferCount = 1;
     VkCommandBuffer cmd_buffer = nullptr;
-    VkResultSuccess(device_functions.vkAllocateCommandBuffers(window.device(), &allocate_info, &cmd_buffer));
+    VkResultSuccess(vkAllocateCommandBuffers(vulkan.device, &allocate_info, &cmd_buffer));
 
     VkCommandBufferBeginInfo begin_info{};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    VkResultSuccess(device_functions.vkBeginCommandBuffer(cmd_buffer, &begin_info));
+    VkResultSuccess(vkBeginCommandBuffer(cmd_buffer, &begin_info));
     return cmd_buffer;
 }
 
-void FlushCommandBuffer(VkCommandBuffer command_buffer, const QVulkanWindow& window)
+void FlushCommandBuffer(VkCommandBuffer command_buffer, VulkanShared& vulkan)
 {
     if (!command_buffer)
         return;
 
-    auto& device_functions = *window.vulkanInstance()->deviceFunctions(window.device());
-
-    VkResultSuccess(device_functions.vkEndCommandBuffer(command_buffer));
+    VkResultSuccess(vkEndCommandBuffer(command_buffer));
 
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -45,28 +40,28 @@ void FlushCommandBuffer(VkCommandBuffer command_buffer, const QVulkanWindow& win
 
     VkFence fence = nullptr;
 
-    VkResultSuccess(device_functions.vkCreateFence(window.device(), &fence_info, nullptr, &fence));
-    VkResultSuccess(device_functions.vkQueueSubmit(window.graphicsQueue(), 1, &submit_info, fence));
-    VkResultSuccess(device_functions.vkWaitForFences(window.device(), 1, &fence, VK_TRUE, 100000000000));
+    VkResultSuccess(vkCreateFence(vulkan.device, &fence_info, nullptr, &fence));
+    VkResultSuccess(vkQueueSubmit(vulkan.graphics_queue, 1, &submit_info, fence));
+    VkResultSuccess(vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, 100000000000));
 
-    device_functions.vkDestroyFence(window.device(), fence, nullptr);
-    device_functions.vkFreeCommandBuffers(window.device(), window.graphicsCommandPool(), 1, &command_buffer);
+    vkDestroyFence(vulkan.device, fence, nullptr);
+    vkFreeCommandBuffers(vulkan.device, vulkan.command_pool, 1, &command_buffer);
 }
 
-ScopeCommandBuffer::ScopeCommandBuffer(const QVulkanWindow& window)
-    : m_window(window)
-    , command_buffer(CreateCommandBuffer(m_window))
+ScopeCommandBuffer::ScopeCommandBuffer(VulkanShared& vulkan)
+    : vulkan(vulkan)
+    , command_buffer(CreateCommandBuffer(vulkan))
 {
 }
 
 ScopeCommandBuffer::~ScopeCommandBuffer()
 {
-    FlushCommandBuffer(command_buffer, m_window);
+    FlushCommandBuffer(command_buffer, vulkan);
 }
 
 void ScopeCommandBuffer::TransferBarrier(VkPipelineStageFlagBits stage_before, VkPipelineStageFlagBits stage_after, const VkImageMemoryBarrier& barrier) const
 {
-    m_window.vulkanInstance()->deviceFunctions(m_window.device())->vkCmdPipelineBarrier(
+    vkCmdPipelineBarrier(
         command_buffer,
         stage_before,
         stage_after,
@@ -77,7 +72,7 @@ void ScopeCommandBuffer::TransferBarrier(VkPipelineStageFlagBits stage_before, V
 
 void ScopeCommandBuffer::CopyImage(VkImage src, VkImage dst, const VkImageCopy& info) const
 {
-    m_window.vulkanInstance()->deviceFunctions(m_window.device())->vkCmdCopyImage(
+   vkCmdCopyImage(
         command_buffer,
         src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -87,7 +82,7 @@ void ScopeCommandBuffer::CopyImage(VkImage src, VkImage dst, const VkImageCopy& 
 
 void ScopeCommandBuffer::CopyBuffer(VkBuffer src, VkBuffer dst, const VkBufferCopy& info) const
 {
-    m_window.vulkanInstance()->deviceFunctions(m_window.device())->vkCmdCopyBuffer(
+    vkCmdCopyBuffer(
         command_buffer,
         src,
         dst,

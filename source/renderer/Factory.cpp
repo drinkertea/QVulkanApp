@@ -1,5 +1,6 @@
 #include "IFactory.h"
 
+#include "Common.h"
 #include <QVulkanWindow>
 #include "IRenderer.h"
 
@@ -20,8 +21,17 @@ class Factory
     : public IFactory
 {
 public:
-    Factory(const QVulkanWindow& wnd)
-        : window(wnd)
+    Factory(const QVulkanWindow& window)
+        : window(window)
+        , vulkan({
+            .device          = window.device(),
+            .physical_device = window.physicalDevice(),
+            .command_pool    = window.graphicsCommandPool(),
+            .graphics_queue  = window.graphicsQueue(),
+            .render_pass     = window.defaultRenderPass(),
+            .host_memory_index   = window.hostVisibleMemoryIndex(),
+            .device_memory_index = window.deviceLocalMemoryIndex(),
+        })
     {
     }
 
@@ -39,31 +49,25 @@ public:
 
     ITexture& CreateTexture(const IDataProvider& data) override
     {
-        textures.emplace_back(data, window);
+        textures.emplace_back(data, vulkan);
         return textures.back();
     }
 
-    IVertexBuffer& CreateVertexBuffer(const IDataProvider& data, const Attributes& attribs) override
+    IBuffer& AddBuffer(BufferUsage usage, const IDataProvider& data) override
     {
-        vertex_buffers.emplace_back(data, attribs, window);
-        return vertex_buffers.back();
+        buffers.emplace_back(usage, data, vulkan);
+        return buffers.back();
     }
 
-    std::unique_ptr<IInstanceBuffer> CreateInstanceBuffer(const IDataProvider& data, const Attributes& attribs) override
+    IVertexLayout& AddVertexLayout() override
     {
-        return std::make_unique<InstanceBuffer>(data, attribs, window);
+        vertex_layouts.emplace_back();
+        return vertex_layouts.back();
     }
 
-    IIndexBuffer& CreateIndexBuffer(const IDataProvider& data) override
+    std::unique_ptr<IBuffer> CreateBuffer(BufferUsage usage, const IDataProvider& data) override
     {
-        index_buffers.emplace_back(data, window);
-        return index_buffers.back();
-    }
-
-    IUniformBuffer& CreateUniformBuffer(const IDataProvider& data) override
-    {
-        uniform_buffers.emplace_back(data, window);
-        return uniform_buffers.back();
+        return std::make_unique<Buffer>(usage, data, vulkan);
     }
 
     IShader& CreateShader(const IDataProvider& data, ShaderType type) override
@@ -78,26 +82,23 @@ public:
         return desc_sets.back();
     }
 
-    IPipeline& CreatePipeline(const IDescriptorSet& desc_set, const Shaders& shaders, const IVertexBuffer& vertex) override
+    IPipeline& CreatePipeline(const IDescriptorSet& desc_set, const Shaders& shaders, const IVertexLayout& vertex) override
     {
-        pipelines.emplace_back(desc_set, shaders, vertex, window);
-        return pipelines.back();
-    }
-
-    IPipeline& CreatePipeline(const IDescriptorSet& desc_set, const Shaders& shaders, const IVertexBuffer& vertex, const IInstanceBuffer& instance) override
-    {
-        pipelines.emplace_back(desc_set, shaders, vertex, instance, window);
+        const auto& desc_set_impl = dynamic_cast<const DescriptorSet&>(desc_set);
+        const auto& vertex_layout = dynamic_cast<const VertexLayout&>(vertex);
+        pipelines.emplace_back(desc_set_impl, shaders, vertex_layout, vulkan);
         return pipelines.back();
     }
 
 private:
     std::deque<Texture>        textures;
-    std::deque<VertexBuffer>   vertex_buffers;
-    std::deque<IndexBuffer>    index_buffers;
-    std::deque<UniformBuffer>  uniform_buffers;
+    std::deque<Buffer>         buffers;
+    std::deque<VertexLayout>   vertex_layouts;
     std::deque<Shader>         shaders;
     std::deque<DescriptorSet>  desc_sets;
     std::deque<Pipeline>       pipelines;
+
+    VulkanShared vulkan;
 
     const QVulkanWindow& window;
 };

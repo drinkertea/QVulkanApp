@@ -5,6 +5,21 @@
 namespace Vulkan
 {
 
+enum class ShaderType
+{
+    vertex = 0,
+    fragment,
+};
+
+enum class AttributeFormat
+{
+    vec1f = 0,
+    vec2f,
+    vec3f,
+    vec4f,
+    vec1i,
+};
+
 struct IDataProvider
 {
     virtual const uint8_t* GetData() const = 0;
@@ -31,28 +46,6 @@ struct IBuffer
     virtual ~IBuffer() = default;
 };
 
-struct IIndexBuffer : public IBuffer
-{
-    virtual ~IIndexBuffer() = default;
-};
-
-struct IVertexBuffer : public IBuffer
-{
-    virtual ~IVertexBuffer() = default;
-};
-
-struct IInstanceBuffer : public IBuffer
-{
-    virtual ~IInstanceBuffer() = default;
-};
-
-struct IUniformBuffer
-    : public IInputResource
-    , public IBuffer
-{
-    virtual ~IUniformBuffer() = default;
-};
-
 struct IPushConstantLayout
     : public IInputResource
 {
@@ -74,13 +67,25 @@ struct IPipeline
     virtual ~IPipeline() = 0 {}
 };
 
+struct IVertexBinding
+{
+    virtual void AddAttribute(AttributeFormat format) = 0;
+    virtual ~IVertexBinding() = default;
+};
+
+struct IVertexLayout
+{
+    virtual IVertexBinding& AddVertexBinding() = 0;
+    virtual IVertexBinding& AddInstanceBinding() = 0;
+    virtual ~IVertexLayout() = default;
+};
+
 struct IRenderPass
 {
     virtual void Bind(const IDescriptorSet&) const = 0;
     virtual void Bind(const IPipeline&) const = 0;
-    virtual void Draw(const IIndexBuffer&, const IVertexBuffer&) const = 0;
-    virtual void Bind(const IIndexBuffer&, const IVertexBuffer&) const = 0;
-    virtual void Draw(const IInstanceBuffer&, uint32_t count = 0, uint32_t offset = 0) const = 0;
+    virtual void Bind(const IBuffer&) const = 0;
+    virtual void Draw(const IBuffer&, uint32_t count = 0, uint32_t offset = 0) const = 0;
     virtual ~IRenderPass() = default;
 };
 

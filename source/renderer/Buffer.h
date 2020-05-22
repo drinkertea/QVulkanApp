@@ -5,110 +5,83 @@
 #include "IFactory.h"
 
 #include <vector>
-
-class QVulkanDeviceFunctions;
-class QVulkanWindow;
+#include <deque>
 
 namespace Vulkan
 {
-    struct Buffer
-    {
-        VkBuffer       buffer = nullptr;
-        VkDeviceMemory memory = nullptr;
-        uint32_t       size = 0u;
-        bool           flush = false;
-    };
 
-    struct VertexLayout
-    {
-        VkPipelineVertexInputStateCreateInfo GetDesc() const;
+struct VulkanShared;
 
-        std::vector<VkVertexInputBindingDescription>   bindings;
-        std::vector<VkVertexInputAttributeDescription> attributes;
-    };
+struct BufferDesc
+{
+    VkBuffer           buffer = nullptr;
+    VkDeviceMemory     memory = nullptr;
+    uint32_t           size = 0u;
+    bool               flush = false;
+};
 
-    class BufferBase
-        : public IBuffer
-    {
-    public:
-        BufferBase(const Buffer& buf, const QVulkanWindow&);
-        ~BufferBase() override;
+struct VertexBinding
+    : public IVertexBinding
+{
+    VertexBinding(uint32_t binding, uint32_t location_offset, VkVertexInputRate input_rate);
+    ~VertexBinding() override = default;
 
-        void Update(const IDataProvider&) override;
+    void AddAttribute(AttributeFormat format) override;
 
-    protected:
-        QVulkanDeviceFunctions& functions;
-        VkDevice device = nullptr;
+    using Attributes = std::vector<VkVertexInputAttributeDescription>;
+    const Attributes& GetAttributes() const { return attributes; }
 
-        Buffer buffer{};
-    };
+    VkVertexInputBindingDescription GetDesc() const;
 
-    class VertexBuffer
-        : public BufferBase
-        , public IVertexBuffer
-    {
-    public:
-        VertexBuffer(const IDataProvider&, const Attributes&, const QVulkanWindow&);
-        ~VertexBuffer() override = default;
+private:
+    uint32_t GetSize() const;
 
-        void Update(const IDataProvider&) override;
+    uint32_t          binding = 0u;
+    uint32_t          location_offset = 0u;
+    VkVertexInputRate input_rate;
+    Attributes        attributes;
+};
 
-        virtual void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const;
-        const VertexLayout& GetLayout() const;
+struct VertexLayoutData
+{
+    VkPipelineVertexInputStateCreateInfo GetDesc() const;
+    std::vector<VkVertexInputBindingDescription>   bindings;
+    std::vector<VkVertexInputAttributeDescription> attributes;
+};
 
-    protected:
-        const QVulkanWindow& window;
+struct VertexLayout
+    : public IVertexLayout
+{
+    ~VertexLayout() override = default;
+    IVertexBinding& AddVertexBinding() override;
+    IVertexBinding& AddInstanceBinding() override;
 
-        VertexLayout layout{};
-    };
+    VertexLayoutData GetData() const;
 
-    class IndexBuffer
-        : public BufferBase
-        , public IIndexBuffer
-    {
-    public:
-        IndexBuffer(const IDataProvider&, const QVulkanWindow&);
-        ~IndexBuffer() override = default;
+private:
+    std::deque<VertexBinding> bindings;
+};
 
-        void Update(const IDataProvider&) override;
+class Buffer
+    : public IBuffer
+{
+public:
+    Buffer(BufferUsage usage, const IDataProvider& data, VulkanShared& vulkan);
+    ~Buffer() override;
 
-        void Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const;
+    void Update(const IDataProvider&) override;
 
-        uint32_t GetIndexCount() const;
+    void Bind(VkCommandBuffer cmd_buf) const;
 
-    private:
-        uint32_t index_count = 0;
-    };
+    uint32_t GetWidth() const { return width; }
+    BufferUsage GetUsage() const { return usage; }
 
-    class UniformBuffer
-        : public BufferBase
-        , public IUniformBuffer
-    {
-    public:
-        UniformBuffer(const IDataProvider&, const QVulkanWindow&);
-        ~UniformBuffer() override = default;
+protected:
+    VulkanShared& vulkan;
 
-        void Update(const IDataProvider&) override;
-
-        VkDescriptorBufferInfo GetInfo() const;
-    };
-
-    class InstanceBuffer
-        : public VertexBuffer
-        , public IInstanceBuffer
-    {
-    public:
-        InstanceBuffer(const IDataProvider&, const Attributes&, const QVulkanWindow&);
-        ~InstanceBuffer() override = default;
-
-        void Update(const IDataProvider&) override;
-
-        void Bind(QVulkanDeviceFunctions & vulkan, VkCommandBuffer cmd_buf) const;
-
-        uint32_t GetInstanceCount() const;
-
-    private:
-        uint32_t instance_count = 0;
-    };
+    uint32_t    width = 0u;
+    BufferUsage usage{};
+    BufferDesc  buffer{};
+};
 
 }

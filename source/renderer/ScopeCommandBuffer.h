@@ -1,17 +1,18 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include "IRenderer.h"
 
-class QVulkanWindow;
+#include "IRenderer.h"
 
 namespace Vulkan
 {
 
+struct VulkanShared;
+
 class ScopeCommandBuffer
 {
 public:
-    ScopeCommandBuffer(const QVulkanWindow& window);
+    ScopeCommandBuffer(VulkanShared& vulkan);
     ~ScopeCommandBuffer();
 
     void TransferBarrier(
@@ -23,7 +24,7 @@ public:
     void CopyBuffer(VkBuffer src, VkBuffer dst, const VkBufferCopy& info) const;
 
 private:
-    const QVulkanWindow& m_window;
+    VulkanShared& vulkan;
 
     VkCommandBuffer command_buffer = nullptr;
 };

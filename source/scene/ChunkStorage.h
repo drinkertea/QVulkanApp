@@ -23,8 +23,6 @@ struct IChunkStorage
 
     virtual void ForEach(const std::function<void(const Chunk&)>& callback) = 0;
 
-    virtual const Vulkan::IInstanceBuffer& GetInstanceLayout() const = 0;
-
     virtual ~IChunkStorage() = default;
 
     static std::unique_ptr<IChunkStorage> Create(Vulkan::ICamera& camera, Vulkan::IFactory& factory);

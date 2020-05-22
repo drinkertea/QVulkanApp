@@ -1,23 +1,16 @@
-#include "Utils.h"
+#include "Pipeline.h"
 
-#include <QVulkanFunctions>
-#include <QVulkanWindow>
+#include "DescriptorSet.h"
+#include "Common.h"
 #include "Shader.h"
 #include "Buffer.h"
-#include "DescriptorSet.h"
-#include "Pipeline.h"
+#include "Utils.h"
 
 namespace Vulkan
 {
 
-Pipeline::Pipeline(const IDescriptorSet& descriptor_set, const Shaders& shaders, const IVertexBuffer& vertex, const IInstanceBuffer& instance, const QVulkanWindow& window)
-    : Pipeline(descriptor_set, shaders, vertex, window, &instance)
-{
-}
-
-Pipeline::Pipeline(const IDescriptorSet& descriptor_set, const Shaders& shaders, const IVertexBuffer& vertex, const QVulkanWindow& window, const IInstanceBuffer* instance)
-    : device(window.device())
-    , functions(*window.vulkanInstance()->deviceFunctions(window.device()))
+Pipeline::Pipeline(const DescriptorSet& descriptor_set, const Shaders& shaders, const VertexLayout& vertex_layout, VulkanShared& vulkan)
+    : vulkan(vulkan)
 {
     VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info{};
     input_assembly_state_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -91,39 +84,16 @@ Pipeline::Pipeline(const IDescriptorSet& descriptor_set, const Shaders& shaders,
         shader_info[i].module = shader->GetModule();
     }
 
-    auto desc_set = dynamic_cast<const DescriptorSet*>(&descriptor_set);
-    if (!desc_set)
-        throw std::logic_error("Unknown desc set derived class");
-
     VkGraphicsPipelineCreateInfo pipeline_info{};
     pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipeline_info.layout = desc_set->GetPipelineLayout();
-    pipeline_info.renderPass = window.defaultRenderPass();
+    pipeline_info.layout = descriptor_set.GetPipelineLayout();
+    pipeline_info.renderPass = vulkan.render_pass;
     pipeline_info.flags = 0;
     pipeline_info.basePipelineIndex = -1;
     pipeline_info.basePipelineHandle = nullptr;
 
-    auto vertex_buffer = dynamic_cast<const VertexBuffer*>(&vertex);
-    if (!vertex_buffer)
-        throw std::logic_error("Unknown vertex derived class");
-
-    VertexLayout res_layout = vertex_buffer->GetLayout();
-
-    if (instance)
-    {
-        auto instance_buffer = dynamic_cast<const InstanceBuffer*>(instance);
-        if (!instance_buffer)
-            throw std::logic_error("Unknown vertex derived class");
-
-        const auto& layout = instance_buffer->GetLayout();
-        res_layout.attributes.insert(res_layout.attributes.end(), layout.attributes.begin(), layout.attributes.end());
-        res_layout.bindings.insert(res_layout.bindings.end(), layout.bindings.begin(), layout.bindings.end());
-    }
-
-    for (uint32_t i = 0; i < res_layout.attributes.size(); ++i)
-        res_layout.attributes[i].location = i;
-
-    auto vertex_info = res_layout.GetDesc();
+    auto data = vertex_layout.GetData();
+    auto vertex_info = data.GetDesc();
     pipeline_info.pVertexInputState    = &vertex_info;
     pipeline_info.pInputAssemblyState  = &input_assembly_state_info;
     pipeline_info.pRasterizationState  = &rasterization_state_info;
@@ -135,25 +105,22 @@ Pipeline::Pipeline(const IDescriptorSet& descriptor_set, const Shaders& shaders,
     pipeline_info.stageCount           = static_cast<uint32_t>(shader_info.size());
     pipeline_info.pStages              = shader_info.data();
 
-    auto device = window.device();
-    auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
-
     VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
     pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 
-    Vulkan::VkResultSuccess(device_functions.vkCreatePipelineCache(device, &pipelineCacheCreateInfo, nullptr, &pipeline_cache));
-    Vulkan::VkResultSuccess(device_functions.vkCreateGraphicsPipelines(device, pipeline_cache, 1, &pipeline_info, nullptr, &pipeline));
+    Vulkan::VkResultSuccess(vkCreatePipelineCache(vulkan.device, &pipelineCacheCreateInfo, nullptr, &pipeline_cache));
+    Vulkan::VkResultSuccess(vkCreateGraphicsPipelines(vulkan.device, pipeline_cache, 1, &pipeline_info, nullptr, &pipeline));
 }
 
 Pipeline::~Pipeline()
 {
-    functions.vkDestroyPipeline(device, pipeline, nullptr);
-    functions.vkDestroyPipelineCache(device, pipeline_cache, nullptr);
+    vkDestroyPipeline(vulkan.device, pipeline, nullptr);
+    vkDestroyPipelineCache(vulkan.device, pipeline_cache, nullptr);
 }
 
-void Pipeline::Bind(QVulkanDeviceFunctions& vulkan, VkCommandBuffer cmd_buf) const
+void Pipeline::Bind(VkCommandBuffer cmd_buf) const
 {
-    vulkan.vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
 }

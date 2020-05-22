@@ -6,7 +6,7 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 set(CMAKE_AUTORCC ON)
 
-set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD 20)
 
 project(QVulkanApp)
 

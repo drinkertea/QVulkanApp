@@ -6,6 +6,7 @@ target_sources(VulkanRenderer
     PUBLIC
         ${PublicHeaders}
     PRIVATE
+        Common.h
         Factory.cpp
         Utils.h
         Utils.cpp

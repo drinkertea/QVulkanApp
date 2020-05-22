@@ -32,7 +32,15 @@ static const std::vector<uint32_t> g_indices = {
     0,1,2, 2,3,0,
 };
 
-static const Vulkan::Attributes g_vertex_attribs = { Vulkan::AttributeFormat::vec1i };
+static const Vulkan::Attributes g_vertex_attribs = {
+    Vulkan::AttributeFormat::vec1i
+};
+
+static const Vulkan::Attributes g_instance_attributes = {
+    Vulkan::AttributeFormat::vec3f,
+    Vulkan::AttributeFormat::vec1i,
+    Vulkan::AttributeFormat::vec1i,
+};
 
 constexpr uint32_t g_texture_type_count = static_cast<uint32_t>(TextureType::Count);
 
@@ -46,8 +54,19 @@ class Scene : public IScene
     Texture textures;
     Program solid_block_program;
 
-    const Vulkan::IIndexBuffer&   index_buffer;
-    const Vulkan::IVertexBuffer&  vertex_buffer;
+    const Vulkan::IVertexLayout& vertex_layout = [](Vulkan::IFactory& factory) {
+        std::reference_wrapper<Vulkan::IVertexLayout> res = factory.AddVertexLayout();
+        auto& vertex = res.get().AddVertexBinding();
+        for (auto& attrib : g_vertex_attribs)
+            vertex.AddAttribute(attrib);
+        auto& instance = res.get().AddInstanceBinding();
+        for (auto& attrib : g_instance_attributes)
+            instance.AddAttribute(attrib);
+        return res;
+    }(*factory);
+
+    const Vulkan::IBuffer&        index_buffer;
+    const Vulkan::IBuffer&        vertex_buffer;
     const Vulkan::IDescriptorSet& descriptor_set;
     const Vulkan::IPipeline&      pipeline;
 
@@ -61,10 +80,10 @@ public:
         , chunk_storage(IChunkStorage::Create(camera, *factory))
         , textures(TextureType::First, g_texture_type_count, *loader, *factory)
         , solid_block_program(ShaderTarget::Block, *loader, *factory)
-        , vertex_buffer (factory->CreateVertexBuffer(Vulkan::BufferDataOwner<Corner>(g_vertices), g_vertex_attribs))
-        , index_buffer  (factory->CreateIndexBuffer(Vulkan::BufferDataOwner<uint32_t>(g_indices)))
+        , vertex_buffer (factory->AddBuffer(Vulkan::BufferUsage::Vertex, Vulkan::BufferDataOwner<Corner>(g_vertices)))
+        , index_buffer  (factory->AddBuffer(Vulkan::BufferUsage::Index, Vulkan::BufferDataOwner<uint32_t>(g_indices)))
         , descriptor_set(factory->CreateDescriptorSet(Vulkan::InputResources{ camera.GetMvpLayout(), textures.GetTexture() }))
-        , pipeline      (factory->CreatePipeline(descriptor_set, solid_block_program.GetShaders(), vertex_buffer, chunk_storage->GetInstanceLayout()))
+        , pipeline      (factory->CreatePipeline(descriptor_set, solid_block_program.GetShaders(), vertex_layout))
     {
     }
 
@@ -80,7 +99,8 @@ public:
 
             render_pass->Bind(descriptor_set);
             render_pass->Bind(pipeline);
-            render_pass->Bind(index_buffer, vertex_buffer);
+            render_pass->Bind(index_buffer);
+            render_pass->Bind(vertex_buffer);
 
 
             chunk_storage->ForEach([&](const Chunk& chunk)

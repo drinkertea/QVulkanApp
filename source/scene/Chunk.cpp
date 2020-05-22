@@ -15,11 +15,7 @@ constexpr int32_t g_chunk_size = 32;
 constexpr uint32_t g_grass_bottom = 57;
 constexpr uint32_t g_grass_top = 78;
 
-Vulkan::Attributes g_instance_attributes = {
-    Vulkan::AttributeFormat::vec3f,
-    Vulkan::AttributeFormat::vec1i,
-    Vulkan::AttributeFormat::vec1i,
-};
+
 
 enum class CubeFace : uint32_t
 {
@@ -176,25 +172,26 @@ Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser
     buffer_size = static_cast<uint32_t>(cubes.size());
 
     alive_marker = task_queue.Add(utils::DefferedExecutor::immediate,
-        std::bind([this, &factory](const auto& cubes, const auto& inst_attribs) {
-            buffer = factory.CreateInstanceBuffer(Vulkan::BufferDataOwner<CubeInstance>(cubes), inst_attribs);
-        }, std::move(cubes), g_instance_attributes)
+        std::bind([this, &factory](const auto& cubes) {
+            buffer = factory.CreateBuffer(Vulkan::BufferUsage::Instance, Vulkan::BufferDataOwner<CubeInstance>(cubes));
+        }, std::move(cubes))
     );
 }
 
 Chunk::~Chunk()
 {
-    if (!alive_marker.expired())
-        *alive_marker.lock() = false;
+    auto apive_sp = alive_marker.lock();
+    if (apive_sp)
+        *apive_sp = false;
 
     if (!buffer)
         return;
 
-    std::shared_ptr<Vulkan::IInstanceBuffer> to_release = std::move(buffer);
+    std::shared_ptr<Vulkan::IBuffer> to_release = std::move(buffer);
     task_queue.Add(frame_buffer_count, [bp = to_release]() {});
 }
 
-const Vulkan::IInstanceBuffer& Scene::Chunk::GetData() const
+const Vulkan::IBuffer& Scene::Chunk::GetData() const
 {
     return *buffer;
 }
