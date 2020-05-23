@@ -80,12 +80,18 @@ struct IVertexLayout
     virtual ~IVertexLayout() = default;
 };
 
-struct IRenderPass
+struct ICommandBuffer
 {
     virtual void Bind(const IDescriptorSet&) const = 0;
     virtual void Bind(const IPipeline&) const = 0;
     virtual void Bind(const IBuffer&) const = 0;
     virtual void Draw(const IBuffer&, uint32_t count = 0, uint32_t offset = 0) const = 0;
+    virtual ~ICommandBuffer() = default;
+};
+
+struct IRenderPass
+{
+    virtual void AddCommandBuffer(ICommandBuffer&) = 0;
     virtual ~IRenderPass() = default;
 };
 

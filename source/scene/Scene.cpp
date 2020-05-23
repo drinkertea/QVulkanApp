@@ -70,6 +70,9 @@ class Scene : public IScene
     const Vulkan::IDescriptorSet& descriptor_set;
     const Vulkan::IPipeline&      pipeline;
 
+    Vulkan::ICommandBuffer& command_buffer;
+    Vulkan::ICommandBuffer& primary_command_buffer;
+
     std::string info = "";
 
 public:
@@ -84,6 +87,8 @@ public:
         , index_buffer  (factory->AddBuffer(Vulkan::BufferUsage::Index, Vulkan::BufferDataOwner<uint32_t>(g_indices)))
         , descriptor_set(factory->CreateDescriptorSet(Vulkan::InputResources{ camera.GetMvpLayout(), textures.GetTexture() }))
         , pipeline      (factory->CreatePipeline(descriptor_set, solid_block_program.GetShaders(), vertex_layout))
+        , primary_command_buffer(factory->AddPrimaryCommandBuffer(camera))
+        , command_buffer(factory->AddSecondaryCommandBuffer(camera))
     {
     }
 
@@ -94,13 +99,15 @@ public:
         int draw_cnt = 0;
         std::vector<std::reference_wrapper<const Chunk>> frustrum_passed_water_chunks;
         {
-            auto render_pass = factory->CreateRenderPass(camera);
+            auto render_pass = factory->CreateRenderPass(primary_command_buffer, camera);
             chunk_storage->OnRender();
 
-            render_pass->Bind(descriptor_set);
-            render_pass->Bind(pipeline);
-            render_pass->Bind(index_buffer);
-            render_pass->Bind(vertex_buffer);
+            render_pass->AddCommandBuffer(command_buffer);
+
+            command_buffer.Bind(descriptor_set);
+            command_buffer.Bind(pipeline);
+            command_buffer.Bind(index_buffer);
+            command_buffer.Bind(vertex_buffer);
 
 
             chunk_storage->ForEach([&](const Chunk& chunk)
@@ -117,13 +124,13 @@ public:
                     return;
 
                 ++draw_cnt;
-                render_pass->Draw(chunk.GetData(), chunk.GetWaterOffset());
+                command_buffer.Draw(chunk.GetData(), chunk.GetWaterOffset());
                 if (chunk.HasWater())
                     frustrum_passed_water_chunks.emplace_back(chunk);
             });
 
             for (const auto& chunk : frustrum_passed_water_chunks)
-                render_pass->Draw(
+                command_buffer.Draw(
                     chunk.get().GetData(),
                     chunk.get().GetGpuSize() - chunk.get().GetWaterOffset(),
                     chunk.get().GetWaterOffset()

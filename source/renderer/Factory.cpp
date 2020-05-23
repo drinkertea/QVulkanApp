@@ -17,6 +17,8 @@
 namespace Vulkan
 {
 
+constexpr uint32_t g_invalid_index = std::numeric_limits<uint32_t>::max();
+
 class Factory
     : public IFactory
 {
@@ -33,6 +35,31 @@ public:
             .device_memory_index = window.deviceLocalMemoryIndex(),
         })
     {
+        uint32_t queueCount;
+        vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical_device, &queueCount, NULL);
+        assert(queueCount >= 1);
+
+        std::vector<VkQueueFamilyProperties> queueProps(queueCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical_device, &queueCount, queueProps.data());
+
+        uint32_t graphicsQueueNodeIndex = g_invalid_index;
+        for (uint32_t i = 0; i < queueCount; i++)
+        {
+            if ((queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0)
+            {
+                if (graphicsQueueNodeIndex == g_invalid_index)
+                {
+                    graphicsQueueNodeIndex = i;
+                }
+            }
+        }
+
+        if (graphicsQueueNodeIndex == g_invalid_index)
+        {
+            throw std::logic_error("WTF");
+        }
+
+        queue_node_index = graphicsQueueNodeIndex;
     }
 
     ~Factory() override = default;
@@ -42,9 +69,10 @@ public:
         return static_cast<uint32_t>(window.concurrentFrameCount());
     }
 
-    std::unique_ptr<IRenderPass> CreateRenderPass(ICamera& camera) const override
+    std::unique_ptr<IRenderPass> CreateRenderPass(ICommandBuffer& primary, ICamera& camera) const override
     {
-        return std::make_unique<RenderPass>(camera, window);
+        auto& primary_impl = dynamic_cast<CommandBuffer&>(primary);
+        return std::make_unique<RenderPass>(primary_impl, camera, window);
     }
 
     ITexture& CreateTexture(const IDataProvider& data) override
@@ -90,6 +118,18 @@ public:
         return pipelines.back();
     }
 
+    ICommandBuffer& AddPrimaryCommandBuffer(ICamera& camera) override
+    {
+        command_buffers.emplace_back(true, queue_node_index, camera, window);
+        return command_buffers.back();
+    }
+
+    ICommandBuffer& AddSecondaryCommandBuffer(ICamera& camera) override
+    {
+        command_buffers.emplace_back(false, queue_node_index, camera, window);
+        return command_buffers.back();
+    }
+
 private:
     std::deque<Texture>        textures;
     std::deque<Buffer>         buffers;
@@ -97,8 +137,11 @@ private:
     std::deque<Shader>         shaders;
     std::deque<DescriptorSet>  desc_sets;
     std::deque<Pipeline>       pipelines;
+    std::deque<CommandBuffer>  command_buffers;
 
     VulkanShared vulkan;
+
+    uint32_t queue_node_index = g_invalid_index;
 
     const QVulkanWindow& window;
 };
