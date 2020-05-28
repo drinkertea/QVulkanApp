@@ -31,14 +31,29 @@ struct DefferedExecutor
 {
     static constexpr uint64_t immediate = 0u;
 
-    std::weak_ptr<bool> Add(uint64_t delay, std::function<void()>&& task)
+    uint64_t Add(uint64_t delay, std::function<void()>&& task)
     {
         std::unique_lock lock(tasks_mutex);
         while (executig)
             condition_variable.wait(lock);
 
-        tasks.emplace_back(prev_time + delay, std::move(task));
-        return tasks.back().alive_marker;
+        auto id = unique_id++;
+        tasks.emplace(std::piecewise_construct, std::forward_as_tuple(id), std::forward_as_tuple(prev_time + delay, std::move(task)));
+        return id;
+    }
+
+    void Remove(uint64_t id)
+    {
+        std::unique_lock lock(tasks_mutex);
+        while (executig)
+            condition_variable.wait(lock);
+
+        auto task_it = tasks.find(id);
+        if (task_it == tasks.end())
+            return;
+
+        task_it->second.task.swap(std::function<void()>{});
+        tasks.erase(task_it);
     }
 
     void Execute(uint64_t time)
@@ -48,9 +63,9 @@ struct DefferedExecutor
             executig = true;
 
             std::unique_lock lock(tasks_mutex);
-            tasks.erase(std::remove_if(tasks.begin(), tasks.end(), [time](const auto& task) {
-                return task.execution_time <= time;
-            }), tasks.end());
+            std::erase_if(tasks, [time](const auto& task) {
+                return task.second.execution_time <= time;
+            });
             prev_time = time;
         }
         condition_variable.notify_all();
@@ -67,8 +82,6 @@ private:
         uint64_t execution_time = 0u;
         std::function<void()> task;
 
-        std::shared_ptr<bool> alive_marker = std::make_shared<bool>(true);
-
         TaskWrapper(uint64_t et, std::function<void()>&& t)
             : execution_time(et)
             , task(std::move(t))
@@ -79,22 +92,19 @@ private:
             : execution_time(r.execution_time)
         {
             task.swap(r.task);
-            alive_marker.swap(r.alive_marker);
         }
 
         TaskWrapper& operator=(TaskWrapper&& r)
         {
             execution_time = r.execution_time;
             task.swap(r.task);
-            alive_marker.swap(r.alive_marker);
             return *this;
         }
 
         ~TaskWrapper()
         {
-            if (!*alive_marker)
-                return;
-            task();
+            if (task)
+                task();
         }
 
         TaskWrapper(const TaskWrapper&) = delete;
@@ -102,7 +112,8 @@ private:
     };
 
     uint64_t prev_time = 0u;
-    std::deque<TaskWrapper> tasks;
+    uint64_t unique_id = 0u;
+    std::map<uint64_t, TaskWrapper> tasks;
 
     std::mutex               tasks_mutex;
     std::condition_variable  condition_variable;

@@ -60,7 +60,7 @@ private:
     bool has_water = false;
 
     utils::DefferedExecutor& task_queue;
-    std::weak_ptr<bool>      alive_marker;
+    uint64_t                 create_id = 0u;
     uint32_t                 frame_buffer_count = 1u;
 };
 

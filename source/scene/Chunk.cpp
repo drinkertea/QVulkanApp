@@ -171,7 +171,7 @@ Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser
     cubes.insert(cubes.end(), water.begin(), water.end());
     buffer_size = static_cast<uint32_t>(cubes.size());
 
-    alive_marker = task_queue.Add(utils::DefferedExecutor::immediate,
+    create_id = task_queue.Add(utils::DefferedExecutor::immediate,
         std::bind([this, &factory](const auto& cubes) {
             buffer = factory.CreateBuffer(Vulkan::BufferUsage::Instance, Vulkan::BufferDataOwner<CubeInstance>(cubes));
         }, std::move(cubes))
@@ -180,13 +180,7 @@ Chunk::Chunk(const utils::vec2i& base, Vulkan::IFactory& factory, INoise& noiser
 
 Chunk::~Chunk()
 {
-    auto apive_sp = alive_marker.lock();
-    if (apive_sp)
-        *apive_sp = false;
-
-    if (!buffer)
-        return;
-
+    task_queue.Remove(create_id);
     std::shared_ptr<Vulkan::IBuffer> to_release = std::move(buffer);
     task_queue.Add(frame_buffer_count, [bp = to_release]() {});
 }
