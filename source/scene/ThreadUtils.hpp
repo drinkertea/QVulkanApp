@@ -116,7 +116,7 @@ struct PriorityExecutor
     {
         uint32_t n = thread_count;
         if (n <= 0)
-            n = std::max(std::thread::hardware_concurrency() / 2u, 1u);
+            n = std::max(std::thread::hardware_concurrency(), 1u);
         for (uint32_t i = 0; i < n; ++i)
             execution_threads.emplace_back(&PriorityExecutor::ExecutionThread, this);
     }

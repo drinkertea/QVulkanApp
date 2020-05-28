@@ -69,10 +69,9 @@ public:
         return static_cast<uint32_t>(window.concurrentFrameCount());
     }
 
-    std::unique_ptr<IRenderPass> CreateRenderPass(ICommandBuffer& primary, ICamera& camera) const override
+    std::unique_ptr<IRenderPass> CreateRenderPass(ICamera& camera) const override
     {
-        auto& primary_impl = dynamic_cast<CommandBuffer&>(primary);
-        return std::make_unique<RenderPass>(primary_impl, camera, window);
+        return std::make_unique<RenderPass>(camera, window);
     }
 
     ITexture& CreateTexture(const IDataProvider& data) override
@@ -118,15 +117,9 @@ public:
         return pipelines.back();
     }
 
-    ICommandBuffer& AddPrimaryCommandBuffer(ICamera& camera) override
+    ICommandBuffer& AddCommandBuffer(ICamera& camera) override
     {
-        command_buffers.emplace_back(true, queue_node_index, camera, window);
-        return command_buffers.back();
-    }
-
-    ICommandBuffer& AddSecondaryCommandBuffer(ICamera& camera) override
-    {
-        command_buffers.emplace_back(false, queue_node_index, camera, window);
+        command_buffers.emplace_back(queue_node_index, camera, window);
         return command_buffers.back();
     }
 

@@ -26,15 +26,14 @@ struct IFactory
 {
     virtual uint32_t GetFrameBufferCount() const = 0;
 
-    virtual std::unique_ptr<IRenderPass> CreateRenderPass(ICommandBuffer&, ICamera& camera) const = 0;
+    virtual std::unique_ptr<IRenderPass> CreateRenderPass(ICamera& camera) const = 0;
 
     virtual std::unique_ptr<IBuffer> CreateBuffer(BufferUsage usage, const IDataProvider&) = 0;
 
     virtual ITexture& CreateTexture(const IDataProvider&) = 0;
     virtual IBuffer& AddBuffer(BufferUsage usage, const IDataProvider&) = 0;
     virtual IVertexLayout& AddVertexLayout() = 0;
-    virtual ICommandBuffer& AddSecondaryCommandBuffer(ICamera& camera) = 0;
-    virtual ICommandBuffer& AddPrimaryCommandBuffer(ICamera& camera) = 0;
+    virtual ICommandBuffer& AddCommandBuffer(ICamera& camera) = 0;
 
     virtual IShader& CreateShader(const IDataProvider&, ShaderType) = 0;
     virtual IDescriptorSet& CreateDescriptorSet(const InputResources&) = 0;

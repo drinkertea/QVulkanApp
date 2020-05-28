@@ -71,7 +71,6 @@ class Scene : public IScene
     const Vulkan::IPipeline&      pipeline;
 
     Vulkan::ICommandBuffer& command_buffer;
-    Vulkan::ICommandBuffer& primary_command_buffer;
 
     std::string info = "";
 
@@ -87,8 +86,7 @@ public:
         , index_buffer  (factory->AddBuffer(Vulkan::BufferUsage::Index, Vulkan::BufferDataOwner<uint32_t>(g_indices)))
         , descriptor_set(factory->CreateDescriptorSet(Vulkan::InputResources{ camera.GetMvpLayout(), textures.GetTexture() }))
         , pipeline      (factory->CreatePipeline(descriptor_set, solid_block_program.GetShaders(), vertex_layout))
-        , primary_command_buffer(factory->AddPrimaryCommandBuffer(camera))
-        , command_buffer(factory->AddSecondaryCommandBuffer(camera))
+        , command_buffer(factory->AddCommandBuffer(camera))
     {
     }
 
@@ -99,7 +97,7 @@ public:
         int draw_cnt = 0;
         std::vector<std::reference_wrapper<const Chunk>> frustrum_passed_water_chunks;
         {
-            auto render_pass = factory->CreateRenderPass(primary_command_buffer, camera);
+            auto render_pass = factory->CreateRenderPass(camera);
             chunk_storage->OnRender();
 
             render_pass->AddCommandBuffer(command_buffer);

@@ -15,7 +15,7 @@ struct CameraRaii;
 struct CommandBuffer
     : public ICommandBuffer
 {
-    CommandBuffer(bool primary, uint32_t queue_node_index, ICamera& camera, const QVulkanWindow& wnd);
+    CommandBuffer(uint32_t queue_node_index, ICamera& camera, const QVulkanWindow& wnd);
     ~CommandBuffer() override;
 
     void Bind(const IDescriptorSet&) const override;
@@ -25,16 +25,14 @@ struct CommandBuffer
 
     void Begin(const VkCommandBufferBeginInfo& begin_info);
     void End();
-    void Submit();
 
-    VkCommandBuffer Get() const { return self; }
+    VkCommandBuffer Get() const;
 
 private:
     const QVulkanWindow& window;
     CameraRaii& camera_raii;
 
-    VkFence fence = nullptr;
-    VkCommandBuffer self = nullptr;
+    std::vector<VkCommandBuffer> self_instances;
     VkCommandPool command_pool = nullptr;
 
     mutable uint32_t current_index_count = 0;
@@ -44,14 +42,13 @@ class RenderPass
     : public IRenderPass
 {
 public:
-    RenderPass(CommandBuffer& primary, ICamera& camera, const QVulkanWindow& wnd);
+    RenderPass(ICamera& camera, const QVulkanWindow& wnd);
     void AddCommandBuffer(ICommandBuffer&) override;
     ~RenderPass() override;
 
 private:
     const QVulkanWindow& window;
     CameraRaii& camera_raii;
-    CommandBuffer& primary;
 
     VkCommandBufferInheritanceInfo inheritance_info{};
     std::vector<std::reference_wrapper<CommandBuffer>> command_buffers;

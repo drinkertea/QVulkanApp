@@ -20,10 +20,9 @@ CameraRaii& GetCam(ICamera& camera)
     return *camera_raii;
 }
 
-RenderPass::RenderPass(CommandBuffer& primary, ICamera& camera, const QVulkanWindow& wnd)
+RenderPass::RenderPass(ICamera& camera, const QVulkanWindow& wnd)
     : window(wnd)
     , camera_raii(GetCam(camera))
-    , primary(primary)
 {
     camera_raii.BeforeRender();
     auto device = window.device();
@@ -51,13 +50,11 @@ RenderPass::RenderPass(CommandBuffer& primary, ICamera& camera, const QVulkanWin
     renderPassBeginInfo.clearValueCount = 2;
     renderPassBeginInfo.pClearValues = clearValues;
 
-    primary.Begin(command_buffer_info);
-
     inheritance_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
     inheritance_info.framebuffer = window.currentFramebuffer();
     inheritance_info.renderPass = window.defaultRenderPass();
 
-    device_functions.vkCmdBeginRenderPass(primary.Get(), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+    device_functions.vkCmdBeginRenderPass(window.currentCommandBuffer(), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 }
 
 void RenderPass::AddCommandBuffer(ICommandBuffer& cmd)
@@ -88,19 +85,17 @@ RenderPass::~RenderPass()
 
     if (!to_execute.empty())
         device_functions.vkCmdExecuteCommands(
-            primary.Get(),
+            window.currentCommandBuffer(),
             static_cast<uint32_t>(to_execute.size()),
             to_execute.data()
         );
 
+    device_functions.vkCmdEndRenderPass(window.currentCommandBuffer());
 
-    device_functions.vkCmdEndRenderPass(primary.Get());
-    primary.End();
     camera_raii.AfterRender();
-    primary.Submit();
 }
 
-CommandBuffer::CommandBuffer(bool primary, uint32_t queue_node_index, ICamera& camera, const QVulkanWindow& wnd)
+CommandBuffer::CommandBuffer(uint32_t queue_node_index, ICamera& camera, const QVulkanWindow& wnd)
     : window(wnd)
     , camera_raii(GetCam(camera))
 {
@@ -116,29 +111,19 @@ CommandBuffer::CommandBuffer(bool primary, uint32_t queue_node_index, ICamera& c
     VkCommandBufferAllocateInfo cmd_buff_allocate_info{};
     cmd_buff_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     cmd_buff_allocate_info.commandPool = command_pool;
-    cmd_buff_allocate_info.level = primary ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY;
-    cmd_buff_allocate_info.commandBufferCount = 1u;
+    cmd_buff_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+    cmd_buff_allocate_info.commandBufferCount = window.concurrentFrameCount();
 
-    if (primary)
-    {
-        VkFenceCreateInfo fence_info = {};
-        fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-
-        VkResultSuccess(device_functions.vkCreateFence(device, &fence_info, nullptr, &fence));
-    }
-
-    VkResultSuccess(device_functions.vkAllocateCommandBuffers(device, &cmd_buff_allocate_info, &self));
+    self_instances.resize(window.concurrentFrameCount());
+    VkResultSuccess(device_functions.vkAllocateCommandBuffers(device, &cmd_buff_allocate_info, self_instances.data()));
 }
 
 CommandBuffer::~CommandBuffer()
 {
     auto device = window.device();
     auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
-    device_functions.vkFreeCommandBuffers(device, command_pool, 1u, &self);
+    device_functions.vkFreeCommandBuffers(device, command_pool, self_instances.size(), self_instances.data());
     device_functions.vkDestroyCommandPool(device, command_pool, nullptr);
-
-    if (fence)
-        device_functions.vkDestroyFence(device, fence, nullptr);
 }
 
 void CommandBuffer::Bind(const IDescriptorSet& desc_set) const
@@ -148,9 +133,9 @@ void CommandBuffer::Bind(const IDescriptorSet& desc_set) const
         throw std::logic_error("Unknown descriptor set derived");
 
     auto& dev_funcs = *window.vulkanInstance()->deviceFunctions(window.device());
-    descriptor_set->Bind(dev_funcs, self);
+    descriptor_set->Bind(dev_funcs, self_instances.at(window.currentFrame()));
 
-    camera_raii.Push(dev_funcs, self, descriptor_set->GetPipelineLayout());
+    camera_raii.Push(dev_funcs, self_instances.at(window.currentFrame()), descriptor_set->GetPipelineLayout());
 }
 
 void CommandBuffer::Bind(const IPipeline& pip) const
@@ -159,7 +144,7 @@ void CommandBuffer::Bind(const IPipeline& pip) const
     if (!pipeline)
         throw std::logic_error("Unknown pipeline set derived");
 
-    pipeline->Bind(self);
+    pipeline->Bind(self_instances.at(window.currentFrame()));
 }
 
 void CommandBuffer::Bind(const IBuffer& buffer) const
@@ -169,7 +154,7 @@ void CommandBuffer::Bind(const IBuffer& buffer) const
     if (buffer_impl.GetUsage() == BufferUsage::Index)
         current_index_count = buffer_impl.GetWidth();
 
-    buffer_impl.Bind(self);
+    buffer_impl.Bind(self_instances.at(window.currentFrame()));
 }
 
 void CommandBuffer::Draw(const IBuffer& buffer, uint32_t count, uint32_t offset) const
@@ -177,9 +162,9 @@ void CommandBuffer::Draw(const IBuffer& buffer, uint32_t count, uint32_t offset)
     const auto& inst_buffer = dynamic_cast<const Buffer&>(buffer);
 
     auto& dev_funcs = *window.vulkanInstance()->deviceFunctions(window.device());
-    inst_buffer.Bind(self);
+    inst_buffer.Bind(self_instances.at(window.currentFrame()));
 
-    dev_funcs.vkCmdDrawIndexed(self, current_index_count, count > 0 ? count : inst_buffer.GetWidth(), 0, 0, offset);
+    dev_funcs.vkCmdDrawIndexed(self_instances.at(window.currentFrame()), current_index_count, count > 0 ? count : inst_buffer.GetWidth(), 0, 0, offset);
 }
 
 void CommandBuffer::Begin(const VkCommandBufferBeginInfo& begin_info)
@@ -187,7 +172,7 @@ void CommandBuffer::Begin(const VkCommandBufferBeginInfo& begin_info)
     auto device = window.device();
     auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
 
-    VkResultSuccess(device_functions.vkBeginCommandBuffer(self, &begin_info));
+    VkResultSuccess(device_functions.vkBeginCommandBuffer(self_instances.at(window.currentFrame()), &begin_info));
 
     const QSize size = window.swapChainImageSize();
 
@@ -196,14 +181,14 @@ void CommandBuffer::Begin(const VkCommandBufferBeginInfo& begin_info)
     viewport.height = size.height();
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
-    device_functions.vkCmdSetViewport(self, 0, 1, &viewport);
+    device_functions.vkCmdSetViewport(self_instances.at(window.currentFrame()), 0, 1, &viewport);
 
     VkRect2D scissor{};
     scissor.extent.width = size.width();
     scissor.extent.height = size.height();
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    device_functions.vkCmdSetScissor(self, 0, 1, &scissor);
+    device_functions.vkCmdSetScissor(self_instances.at(window.currentFrame()), 0, 1, &scissor);
 }
 
 void CommandBuffer::End()
@@ -211,25 +196,12 @@ void CommandBuffer::End()
     auto device = window.device();
     auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
 
-    VkResultSuccess(device_functions.vkEndCommandBuffer(self));
+    VkResultSuccess(device_functions.vkEndCommandBuffer(self_instances.at(window.currentFrame())));
 }
 
-void CommandBuffer::Submit()
+VkCommandBuffer CommandBuffer::Get() const
 {
-    if (!fence)
-        return;
-
-    auto device = window.device();
-    auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
-
-    VkSubmitInfo submit_info = {};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &self;
-
-    device_functions.vkResetFences(device, 1, &fence);
-    VkResultSuccess(device_functions.vkQueueSubmit(window.graphicsQueue(), 1, &submit_info, fence));
-    VkResultSuccess(device_functions.vkWaitForFences(device, 1, &fence, VK_TRUE, 100000000000));
+    return self_instances.at(window.currentFrame());
 }
 
 }
