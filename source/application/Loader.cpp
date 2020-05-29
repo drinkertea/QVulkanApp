@@ -4,6 +4,8 @@
 #include <IFactory.h>
 #include <IResourceLoader.h>
 
+#include <stdexcept>
+
 using Scene::TextureType;
 
 class Loader

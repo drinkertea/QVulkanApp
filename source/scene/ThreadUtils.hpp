@@ -188,5 +188,72 @@ private:
     bool adding = false;
 };
 
+struct SimpleThread
+{
+    using Ptr = std::unique_ptr<SimpleThread>;
+
+    using Tasks = std::deque<std::function<void()>>;
+    SimpleThread()
+        : execution_thread(&SimpleThread::ExecutionThread, this)
+    {
+    }
+
+    ~SimpleThread()
+    {
+        terminated = true;
+        condition_variable.notify_one();
+        execution_thread.join();
+    }
+
+    void Add(std::function<void()>&& task)
+    {
+        {
+            BoolScopeGuard guard(adding);
+            adding = true;
+            std::unique_lock<std::mutex> lock(tasks_mutex);
+            tasks.push_back(std::move(task));
+        }
+        condition_variable.notify_one();
+    }
+
+    void Wait()
+    {
+        std::unique_lock<std::mutex> lock(tasks_mutex);
+        while (!tasks.empty())
+            condition_variable.wait(lock);
+    }
+
+private:
+    void ExecutionThread()
+    {
+        while (!terminated)
+        {
+            std::unique_lock<std::mutex> lock(tasks_mutex);
+            while (adding || tasks.empty())
+            {
+                condition_variable.wait(lock);
+                if (terminated)
+                    return;
+            }
+
+            tasks.front()();
+            tasks.pop_front();
+
+            if (tasks.empty())
+                condition_variable.notify_one();
+        }
+    }
+
+    Tasks                    tasks;
+    std::mutex               tasks_mutex;
+    std::mutex               done_mutex;
+    std::condition_variable  condition_variable;
+    std::condition_variable  done_condition_variable;
+    std::thread              execution_thread;
+
+    bool terminated = false;
+    bool adding = false;
+};
+
 }
 }

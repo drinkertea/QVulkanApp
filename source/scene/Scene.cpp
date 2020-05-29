@@ -9,6 +9,7 @@
 #include "ChunkStorage.h"
 #include "Texture.h"
 #include "Shader.h"
+#include "ThreadUtils.hpp"
 
 namespace Scene
 {
@@ -70,7 +71,23 @@ class Scene : public IScene
     const Vulkan::IDescriptorSet& descriptor_set;
     const Vulkan::IPipeline&      pipeline;
 
-    Vulkan::ICommandBuffer& command_buffer;
+    uint32_t thread_count = 1;// std::thread::hardware_concurrency();
+    std::vector<utils::SimpleThread::Ptr> draw_threads = [](uint32_t thread_count)
+    {
+        std::vector<utils::SimpleThread::Ptr> draw_threads;
+        for (uint32_t i = 0; i < thread_count; ++i)
+            draw_threads.emplace_back(std::make_unique<utils::SimpleThread>());
+        return draw_threads;
+    }(thread_count);
+
+    using CommandBufferRef = std::reference_wrapper<Vulkan::ICommandBuffer>;
+    std::vector<CommandBufferRef> command_buffers = [](Vulkan::IFactory& factory, Vulkan::ICamera& camera, uint32_t thread_count)
+    {
+        std::vector<CommandBufferRef> command_buffers;
+        for (uint32_t i = 0; i < thread_count; ++i)
+            command_buffers.emplace_back(factory.AddCommandBuffer(camera));
+        return command_buffers;
+    }(*factory, camera, thread_count);
 
     std::string info = "";
 
@@ -86,7 +103,6 @@ public:
         , index_buffer  (factory->AddBuffer(Vulkan::BufferUsage::Index, Vulkan::BufferDataOwner<uint32_t>(g_indices)))
         , descriptor_set(factory->CreateDescriptorSet(Vulkan::InputResources{ camera.GetMvpLayout(), textures.GetTexture() }))
         , pipeline      (factory->CreatePipeline(descriptor_set, solid_block_program.GetShaders(), vertex_layout))
-        , command_buffer(factory->AddCommandBuffer(camera))
     {
     }
 
@@ -94,45 +110,71 @@ public:
 
     void Render() override
     {
-        int draw_cnt = 0;
+        std::atomic_uint32_t draw_cnt = 0;
         std::vector<std::reference_wrapper<const Chunk>> frustrum_passed_water_chunks;
+        std::mutex water_mutex;
+
+        chunk_storage->OnRender();
+
         {
             auto render_pass = factory->CreateRenderPass(camera);
-            chunk_storage->OnRender();
 
-            render_pass->AddCommandBuffer(command_buffer);
+            for (uint32_t i = 0; i < thread_count; ++i)
+            {
+                auto& command_buffer = command_buffers.at(i).get();
+                render_pass->AddCommandBuffer(command_buffer);
 
-            command_buffer.Bind(descriptor_set);
-            command_buffer.Bind(pipeline);
-            command_buffer.Bind(index_buffer);
-            command_buffer.Bind(vertex_buffer);
+                command_buffer.Bind(descriptor_set);
+                command_buffer.Bind(pipeline);
+                command_buffer.Bind(index_buffer);
+                command_buffer.Bind(vertex_buffer);
+            }
 
-
+            size_t thread_index = 0u;
             chunk_storage->ForEach([&](const Chunk& chunk)
             {
-                const auto& bbox = chunk.GetBBox();
-                if (!camera.ObjectVisible(Vulkan::BBox{
-                    static_cast<float>(bbox.first.x),
-                    static_cast<float>(bbox.first.y),
-                    static_cast<float>(bbox.first.z),
-                    static_cast<float>(bbox.second.x),
-                    static_cast<float>(bbox.second.y),
-                    static_cast<float>(bbox.second.z),
-                    }))
-                    return;
+                draw_threads[thread_index++ % thread_count]->Add(std::bind([&](size_t thread_index) {
+                    const auto& bbox = chunk.GetBBox();
+                    //if (!camera.ObjectVisible(Vulkan::BBox{
+                    //    static_cast<float>(bbox.first.x),
+                    //    static_cast<float>(bbox.first.y),
+                    //    static_cast<float>(bbox.first.z),
+                    //    static_cast<float>(bbox.second.x),
+                    //    static_cast<float>(bbox.second.y),
+                    //    static_cast<float>(bbox.second.z),
+                    //    }))
+                    //    return;
 
-                ++draw_cnt;
-                command_buffer.Draw(chunk.GetData(), chunk.GetWaterOffset());
-                if (chunk.HasWater())
+                    ++draw_cnt;
+                    command_buffers[thread_index].get().Draw(chunk.GetData(), chunk.GetWaterOffset());
+                    if (!chunk.HasWater())
+                        return;
+
+                    std::lock_guard lock(water_mutex);
                     frustrum_passed_water_chunks.emplace_back(chunk);
+                }, thread_index++ % thread_count));
             });
 
+            for (auto& draw_thread : draw_threads)
+            {
+                draw_thread->Wait();
+            }
+
             for (const auto& chunk : frustrum_passed_water_chunks)
-                command_buffer.Draw(
-                    chunk.get().GetData(),
-                    chunk.get().GetGpuSize() - chunk.get().GetWaterOffset(),
-                    chunk.get().GetWaterOffset()
-                );
+            {
+                draw_threads[thread_index++ % thread_count]->Add(std::bind([&](size_t thread_index) {
+                    command_buffers[thread_index].get().Draw(
+                        chunk.get().GetData(),
+                        chunk.get().GetGpuSize() - chunk.get().GetWaterOffset(),
+                        chunk.get().GetWaterOffset()
+                    );
+                }, thread_index++ % thread_count));
+            }
+
+            for (auto& draw_thread : draw_threads)
+            {
+                draw_thread->Wait();
+            }
         }
 
         info = " - " + std::to_string(draw_cnt) + " chunks ";

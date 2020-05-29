@@ -13,6 +13,7 @@
 
 #include <deque>
 #include <set>
+#include <stdexcept>
 
 namespace Vulkan
 {
@@ -26,11 +27,11 @@ public:
     Factory(const QVulkanWindow& window)
         : window(window)
         , vulkan({
-            .device          = window.device(),
-            .physical_device = window.physicalDevice(),
-            .command_pool    = window.graphicsCommandPool(),
-            .graphics_queue  = window.graphicsQueue(),
-            .render_pass     = window.defaultRenderPass(),
+            .device              = window.device(),
+            .physical_device     = window.physicalDevice(),
+            .command_pool        = window.graphicsCommandPool(),
+            .graphics_queue      = window.graphicsQueue(),
+            .render_pass         = window.defaultRenderPass(),
             .host_memory_index   = window.hostVisibleMemoryIndex(),
             .device_memory_index = window.deviceLocalMemoryIndex(),
         })

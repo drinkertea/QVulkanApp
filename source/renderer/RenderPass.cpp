@@ -8,6 +8,8 @@
 #include "Pipeline.h"
 #include "Camera.h"
 
+#include <Windows.h>
+
 namespace Vulkan
 {
 
@@ -63,7 +65,7 @@ void RenderPass::AddCommandBuffer(ICommandBuffer& cmd)
 
     VkCommandBufferBeginInfo cmd_begin_info{};
     cmd_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    cmd_begin_info.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+    cmd_begin_info.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT | VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     cmd_begin_info.pInheritanceInfo = &inheritance_info;
 
     command_buffers.back().get().Begin(cmd_begin_info);
@@ -79,8 +81,8 @@ RenderPass::~RenderPass()
 
     for (auto& cmd : command_buffers)
     {
-        command_buffers.back().get().End();
-        to_execute.emplace_back(command_buffers.back().get().Get());
+        cmd.get().Flush();
+        to_execute.emplace_back(cmd.get().Get());
     }
 
     if (!to_execute.empty())
@@ -145,6 +147,24 @@ void CommandBuffer::Bind(const IPipeline& pip) const
         throw std::logic_error("Unknown pipeline set derived");
 
     pipeline->Bind(self_instances.at(window.currentFrame()));
+
+    const QSize size = window.swapChainImageSize();
+    auto device = window.device();
+    auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
+
+    VkViewport viewport{};
+    viewport.width = size.width();
+    viewport.height = size.height();
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    device_functions.vkCmdSetViewport(self_instances.at(window.currentFrame()), 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.extent.width = size.width();
+    scissor.extent.height = size.height();
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    device_functions.vkCmdSetScissor(self_instances.at(window.currentFrame()), 0, 1, &scissor);
 }
 
 void CommandBuffer::Bind(const IBuffer& buffer) const
@@ -167,36 +187,23 @@ void CommandBuffer::Draw(const IBuffer& buffer, uint32_t count, uint32_t offset)
     dev_funcs.vkCmdDrawIndexed(self_instances.at(window.currentFrame()), current_index_count, count > 0 ? count : inst_buffer.GetWidth(), 0, 0, offset);
 }
 
+void CommandBuffer::Flush() const
+{
+    auto device = window.device();
+    auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
+
+    OutputDebugStringA(std::string("end " + std::to_string(window.currentFrame()) + "\n").c_str());
+
+    VkResultSuccess(device_functions.vkEndCommandBuffer(self_instances.at(window.currentFrame())));
+}
+
 void CommandBuffer::Begin(const VkCommandBufferBeginInfo& begin_info)
 {
     auto device = window.device();
     auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
 
+    OutputDebugStringA(std::string("begin " + std::to_string(window.currentFrame()) + "\n").c_str());
     VkResultSuccess(device_functions.vkBeginCommandBuffer(self_instances.at(window.currentFrame()), &begin_info));
-
-    const QSize size = window.swapChainImageSize();
-
-    VkViewport viewport{};
-    viewport.width = size.width();
-    viewport.height = size.height();
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    device_functions.vkCmdSetViewport(self_instances.at(window.currentFrame()), 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.extent.width = size.width();
-    scissor.extent.height = size.height();
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    device_functions.vkCmdSetScissor(self_instances.at(window.currentFrame()), 0, 1, &scissor);
-}
-
-void CommandBuffer::End()
-{
-    auto device = window.device();
-    auto& device_functions = *window.vulkanInstance()->deviceFunctions(device);
-
-    VkResultSuccess(device_functions.vkEndCommandBuffer(self_instances.at(window.currentFrame())));
 }
 
 VkCommandBuffer CommandBuffer::Get() const
