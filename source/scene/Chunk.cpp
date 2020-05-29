@@ -15,8 +15,6 @@ constexpr int32_t g_chunk_size = 32;
 constexpr uint32_t g_grass_bottom = 57;
 constexpr uint32_t g_grass_top = 78;
 
-
-
 enum class CubeFace : uint32_t
 {
     front = 0,

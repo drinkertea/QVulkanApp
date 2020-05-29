@@ -71,7 +71,7 @@ class Scene : public IScene
     const Vulkan::IDescriptorSet& descriptor_set;
     const Vulkan::IPipeline&      pipeline;
 
-    uint32_t thread_count = 1;// std::thread::hardware_concurrency();
+    uint32_t thread_count = 2;// std::thread::hardware_concurrency();
     std::vector<utils::SimpleThread::Ptr> draw_threads = [](uint32_t thread_count)
     {
         std::vector<utils::SimpleThread::Ptr> draw_threads;
@@ -162,18 +162,11 @@ public:
 
             for (const auto& chunk : frustrum_passed_water_chunks)
             {
-                draw_threads[thread_index++ % thread_count]->Add(std::bind([&](size_t thread_index) {
-                    command_buffers[thread_index].get().Draw(
-                        chunk.get().GetData(),
-                        chunk.get().GetGpuSize() - chunk.get().GetWaterOffset(),
-                        chunk.get().GetWaterOffset()
-                    );
-                }, thread_index++ % thread_count));
-            }
-
-            for (auto& draw_thread : draw_threads)
-            {
-                draw_thread->Wait();
+                command_buffers.back().get().Draw(
+                    chunk.get().GetData(),
+                    chunk.get().GetGpuSize() - chunk.get().GetWaterOffset(),
+                    chunk.get().GetWaterOffset()
+                );
             }
         }
 
