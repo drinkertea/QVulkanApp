@@ -24,7 +24,7 @@ struct CommandBuffer
     void Draw(const IBuffer&, uint32_t count, uint32_t offset) const override;
 
     void Begin(const VkCommandBufferBeginInfo& begin_info);
-    void End();
+    void Flush() const;
 
     VkCommandBuffer Get() const;
 
