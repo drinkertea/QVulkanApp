@@ -71,7 +71,7 @@ class Scene : public IScene
     const Vulkan::IDescriptorSet& descriptor_set;
     const Vulkan::IPipeline&      pipeline;
 
-    uint32_t thread_count = 2;// std::thread::hardware_concurrency();
+    uint32_t thread_count = 1;// std::thread::hardware_concurrency();
     std::vector<utils::SimpleThread::Ptr> draw_threads = [](uint32_t thread_count)
     {
         std::vector<utils::SimpleThread::Ptr> draw_threads;
@@ -90,6 +90,9 @@ class Scene : public IScene
     }(*factory, camera, thread_count);
 
     std::string info = "";
+
+    uint64_t frame = 0u;
+    uint64_t time_diff = 0u;
 
 public:
     Scene(Vulkan::ICamera& camera, std::unique_ptr<Vulkan::IFactory> fac, std::unique_ptr<IResourceLoader> load)
@@ -110,6 +113,8 @@ public:
 
     void Render() override
     {
+        auto render_begin = std::chrono::high_resolution_clock::now();
+
         std::atomic_uint32_t draw_cnt = 0;
         std::vector<std::reference_wrapper<const Chunk>> frustrum_passed_water_chunks;
         std::mutex water_mutex;
@@ -135,15 +140,15 @@ public:
             {
                 draw_threads[thread_index++ % thread_count]->Add(std::bind([&](size_t thread_index) {
                     const auto& bbox = chunk.GetBBox();
-                    //if (!camera.ObjectVisible(Vulkan::BBox{
-                    //    static_cast<float>(bbox.first.x),
-                    //    static_cast<float>(bbox.first.y),
-                    //    static_cast<float>(bbox.first.z),
-                    //    static_cast<float>(bbox.second.x),
-                    //    static_cast<float>(bbox.second.y),
-                    //    static_cast<float>(bbox.second.z),
-                    //    }))
-                    //    return;
+                    if (!camera.ObjectVisible(Vulkan::BBox{
+                        static_cast<float>(bbox.first.x),
+                        static_cast<float>(bbox.first.y),
+                        static_cast<float>(bbox.first.z),
+                        static_cast<float>(bbox.second.x),
+                        static_cast<float>(bbox.second.y),
+                        static_cast<float>(bbox.second.z),
+                        }))
+                        return;
 
                     ++draw_cnt;
                     command_buffers[thread_index].get().Draw(chunk.GetData(), chunk.GetWaterOffset());
@@ -170,7 +175,11 @@ public:
             }
         }
 
-        info = " - " + std::to_string(draw_cnt) + " chunks ";
+        auto render_end = std::chrono::high_resolution_clock::now();
+        if (frame++ % 30 == 0)
+            time_diff = std::chrono::duration_cast<std::chrono::microseconds>(render_end - render_begin).count();
+
+        info = " - " + std::to_string(draw_cnt) + " chunks " + " - CPU frame time - " + std::to_string(time_diff);
     }
 
     const std::string& GetInfo() const override
