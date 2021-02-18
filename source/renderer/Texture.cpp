@@ -106,8 +106,9 @@ namespace Vulkan
     VkSampler CreateSampler(VulkanShared& vulkan)
     {
         VkSampler res = nullptr;
+        auto info = GetSamplerCreateInfo();
         VkResultSuccess(vkCreateSampler(
-            vulkan.device, &GetSamplerCreateInfo(), nullptr, &res
+            vulkan.device, &info, nullptr, &res
         ));
         return res;
     }

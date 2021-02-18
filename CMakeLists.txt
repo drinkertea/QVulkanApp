@@ -11,7 +11,7 @@ set (CMAKE_CXX_STANDARD 20)
 project(QVulkanApp)
 
 include(cmake/qt-install.cmake)
-get_qt(5.15.0)
+get_qt(5.15.2)
 set(CMAKE_PREFIX_PATH ${QT_DIR})
 find_package(Qt5 COMPONENTS GUI REQUIRED)
 
