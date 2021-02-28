@@ -52,7 +52,7 @@ struct DefferedExecutor
         if (task_it == tasks.end())
             return;
 
-        task_it->second.task.swap(std::function<void()>{});
+        task_it->second.task = {};
         tasks.erase(task_it);
     }
 
